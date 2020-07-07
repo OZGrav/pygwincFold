@@ -7,6 +7,43 @@ from . import logger
 from .trace import BudgetTrace
 
 
+def precomp(*precomp_funcs):
+    """BudgetItem.calc decorator to add pre-computed functions
+
+    This is intended to decorate BudgetItem.calc() methods with
+    functions that would update the BudgetItem.ifo attribute.  All
+    precomp functions are collected, and executed after attribute
+    update during BudgetItem.update() calls.  They are supplied with
+    the `freq` array and `ifo` Struct attributes as arguments, and are
+    intended to update the `ifo` with derived values needed during
+    subsequent calc() calls.
+
+    For example, if a calc method is defined as:
+
+      @precomp(precomp_foo)
+      @precomp(precomp_bar)
+      def calc(self):
+          ...
+
+    then the update method will execute the following after attribute
+    update:
+
+      precomp_foo(self.freq, self.ifo)
+      precomp_bar(self.freq, self.ifo)
+
+    The execution state of precomp functions are cached so that the
+    same function is not needlessly executed multiple times.
+
+    """
+    def decorator(func):
+        if not hasattr(func, '_precomp'):
+            func._precomp = set()
+        for f in precomp_funcs:
+            func._precomp.add(f)
+        return func
+    return decorator
+
+
 def quadsum(data):
     """Calculate quadrature sum of list of data arrays.
 
@@ -29,20 +66,41 @@ class BudgetItem:
         """
         return None
 
-    def update(self, **kwargs):
-        """Overload method for updating data.
+    def update(self, _precomp=None, **kwargs):
+        """Update parameters and execute precomp functions.
 
-        By default any keyword arguments provided are written directly
-        as attribute variables (as with __init__).
+        The method does two things.  First, any keyword arguments
+        provided are written directly as attribute variables to the
+        class (as with __init__).
 
-        When overloading this method it is recommended to execute the
-        method from the base class with e.g.:
+        Second, after attribute update, all functions provided by
+        @precomp decorators to the calc() method will be executed,
+        supplied with the `freq` and `ifo` attributes as arguments.
+        See the `precomp` documentation for more information.
+
+        The `_precomp` keyword argument is for internal use.  If
+        provided, it is assumed to be a set of previously executed
+        precomp functions.  Any function included in the set will not
+        be re-executed, and the set will be updated with any newly
+        executed functions.
+
+        This method can be overridden, but if it is, it's important to
+        make sure that the method defined in the base class is always
+        executed with e.g.:
 
           super().update(**kwargs)
 
         """
         for key, val in kwargs.items():
             setattr(self, key, val)
+        if _precomp is None:
+            _precomp = set()
+        for func in getattr(self.calc, '_precomp', []):
+            if func in _precomp:
+                continue
+            logger.debug("precomp {}".format(func))
+            func(self.freq, self.ifo)
+            _precomp.add(func)
 
     def calc(self):
         """Overload method for final PSD calculation.
@@ -366,16 +424,21 @@ class Budget(Noise):
             logger.debug("load {}".format(item))
             item.load()
 
-    def update(self, **kwargs):
-        """Update all noise and cal objects with supplied kwargs."""
-        super().update(**kwargs)
+    def update(self, _precomp=None, **kwargs):
+        """Recursively update all noise and cal objects with supplied kwargs.
+
+        See BudgetItem.update() for more info.
+
+        """
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+        if _precomp is None:
+            _precomp = set()
         for name, item in itertools.chain(
                 self._cal_objs.items(),
                 self._noise_objs.items()):
             logger.debug("update {}".format(item))
-            item.update(**kwargs)
-
-    update.__doc__ = Noise.update.__doc__
+            item.update(_precomp=_precomp, **kwargs)
 
     def calc_noise(self, name, calibration=1, calc=True, _cals=None):
         """Return calibrated individual noise BudgetTrace.

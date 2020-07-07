@@ -74,7 +74,7 @@ command line:
 $ python3 -m gwinc aLIGO --ifo Optics.SRM.Tunephase=3.14
 ```
 
-Stand-alone YAML files will always assume the nominal ['aLIGO' budget
+Stand-alone YAML files assume the nominal ['aLIGO' budget
 description](gwinc/ifo/aLIGO).
 
 [Custom budgets](#budget-interface) may also be processed by providing
@@ -235,12 +235,11 @@ are:
 * `calc()`: return final data array
 
 Generally these methods are not called directly.  Instead, the `Noise`
-and `Budget` classes include a `run` method that smartly executes then
-all in sequence.
+and `Budget` classes include a `run` method that smartly executes them
+in sequence and returns a `BudgetTrace` object for the budget.
 
-
-See the built-in documentation for more info (e.g. `pydoc3
-gwinc.nb.BudgetItem`)
+See the built-in `BudgetItem` documentation for more info
+(e.g. `pydoc3 gwinc.nb.BudgetItem`)
 
 
 ### budget module definition
@@ -350,6 +349,56 @@ trace = budget.run(ifo=ifo)
 
 The IFOs included in `gwinc.ifo` provide examples of the use of the
 budget interface (e.g. [gwinc.ifo.aLIGO](gwinc/ifo/aLIGO)).
+
+
+### the "precomp" decorator
+
+The `BudgetItem` supports "precomp" functions that can be used to
+calculate common derived values needed in multiple `BudgetItems`.
+They are specified using the `nb.precomp` decorator applied to the
+`BudgetItem.calc()` method.  These functions are executed during the
+`update()` method call, supplied with the budget `freq` and `ifo`
+attributes as input arguments, and are expected to update the `ifo`
+struct.  The execution state of the precomp functions is cached at the
+Budget level, to prevent needlessly re-calculating them multiple
+times.  For example:
+```python
+from gwinc import nb
+
+
+def precomp_foo(freq, ifo):
+    ifo.Foo = ...
+
+
+def precomp_bar(freq, ifo):
+    ifo.Bar = ...
+
+
+class Noise0(nb.Noise):
+    @nb.precomp(precomp_foo)
+    def calc(self):
+        ...
+
+class Noise1(nb.Noise):
+    @nb.precomp(precomp_foo)
+    @nb.precomp(precomp_bar)
+    def calc(self):
+        ...
+
+class MyBudget(nb.Budget):
+    noises = [
+        Noise0,
+        Noise1,
+    ]
+```
+When `MyBudget.run()` is called, all the `precomp` functions will be
+executed, e.g.:
+```python
+precomp_foo(self.freq, self.ifo)
+precomp_bar(self.freq, self.ifo)
+```
+But the `precomp_foo` function will only be calculated once even
+though it's specified as needed by both `Noise0` and `Noise1`.
 
 
 ### extracting single noise terms
