@@ -47,20 +47,21 @@ file (without display) (various file formats are supported, indicated
 by file extension).  If the requested extension is 'hdf5' or 'h5' then
 the noise traces and IFO parameters will be saved to an HDF5 file.
 
-If the inspiral_range package is available, various figures of merit
-can be calculated for the resultant spectrum with the --fom option,
-e.g.:
+If the inspiral_range package is available, various BNS (m1=m2=1.4
+M_solar) range figures of merit will be calculated for the resultant
+spectrum.  The range parameters can be overriden with the --range
+option, e.g.:
 
-  gwinc --fom horizon ...
-  gwinc --fom range:m1=20,m2=20 ...
+  gwinc --range m1=20,m2=20 ...
 
-See the inspiral_range package documentation for details.
-NOTE: The range will be calculated with the supplied frequency array,
-and may therefore be inaccurate if a restricted array is specified.
+Specify "none" to bypass calculating the inspiral ranges.  See the
+inspiral_range package documentation for details.
 """
 
 IFO = 'aLIGO'
-FOM = 'range:m1=1.4,m2=1.4'
+FREQ = '5:3000:6000'
+RANGE_PARAMS = 'm1=1.4,m2=1.4'
+DATA_SAVE_FORMATS = ['.hdf5', '.h5']
 
 parser = argparse.ArgumentParser(
     prog='gwinc',
@@ -80,8 +81,8 @@ parser.add_argument(
     '--title', '-t',
     help="plot title")
 parser.add_argument(
-    '--fom', metavar='FUNC[:PARAM=VAL,...]', default=FOM,
-    help="use inspiral_range.FUNC to calculate range figure-of-merit on resultant spectrum")
+    '--range', metavar='PARAM=VAL[,...]', default=RANGE_PARAMS,
+    help="specify inspiral_range parameters, or 'none' to not calculate range")
 group = parser.add_mutually_exclusive_group()
 group.add_argument(
     '--interactive', '-i', action='store_true',
@@ -194,25 +195,22 @@ def main():
             logger.warning("no display, plotting disabled.")
             args.plot = False
 
-    try:
-        import inspiral_range
-        logger_ir = logging.getLogger('inspiral_range')
-        logger_ir.setLevel(logger.getEffectiveLevel())
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
-        logger_ir.addHandler(handler)
-
-    except ModuleNotFoundError:
-        logger.warning("WARNING: inspiral_range package not available, figure of merit will not be calculated.")
-        args.fom = None
-    if args.fom:
+    if args.range.lower() in ['none', 'no', 'false']:
+        args.range = None
+    else:
         try:
-            range_func, range_func_args = args.fom.split(':')
-        except ValueError:
-            range_func = args.fom
-            range_func_args = ''
+            import inspiral_range
+            logger_ir = logging.getLogger('inspiral_range')
+            logger_ir.setLevel(logger.getEffectiveLevel())
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
+            logger_ir.addHandler(handler)
+        except ModuleNotFoundError:
+            logger.warning("WARNING: inspiral_range package not available, figure of merit will not be calculated.")
+            args.range = None
+    if args.range:
         range_params = {}
-        for param in range_func_args.split(','):
+        for param in args.range.split(','):
             if not param:
                 continue
             p, v = param.split('=')
@@ -234,21 +232,23 @@ def main():
     if args.title:
         plot_style['title'] = args.title
     else:
-        plot_style['title'] = plot_style.get(
-            'title',
-            "GWINC Noise Budget: {}".format(args.IFO),
-        )
-    if args.fom:
-        logger.info("calculating inspiral {}...".format(range_func))
-        H = inspiral_range.CBCWaveform(freq, **range_params)
-        logger.debug("waveform params: {}".format(H.params))
-        fom = eval('inspiral_range.{}'.format(range_func))(freq, trace.psd, H=H)
-        logger.info("{}({}) = {:.2f} Mpc".format(range_func, range_func_args, fom))
-        subtitle = 'inspiral {func} {m1}/{m2} $\mathrm{{M}}_\odot$: {fom:.0f} Mpc'.format(
+        plot_style['title'] = "GWINC Noise Budget: {}".format(args.IFO)
+
+    if args.range:
+        logger.info("calculating inspiral ranges...")
+        metrics, H = inspiral_range.all_ranges(freq, trace.psd, **range_params)
+        print(f"{H.params['approximant']} {H.params['m1']}/{H.params['m2']} M_solar:")
+        for metric, (value, unit) in metrics.items():
+            if unit is None:
+                unit = ''
+            print(f" {metric}: {value:0.1f} {unit}")
+        range_func = 'range'
+        subtitle = 'inspiral {func} {m1}/{m2} $\mathrm{{M}}_\odot$: {fom:.0f} {unit}'.format(
             func=range_func,
             m1=H.params['m1'],
             m2=H.params['m2'],
-            fom=fom,
+            fom=metrics[range_func][0],
+            unit=metrics[range_func][1] or '',
             )
     else:
         subtitle = None
