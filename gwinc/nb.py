@@ -220,14 +220,36 @@ class Noise(BudgetItem):
         return self._make_trace(psd=total)
 
     def run(self, **kwargs):
-        """Convenience method to load, update, and return calc traces.
+        """Calculate budget noise and return BudgetTrace object.
 
-        Equivalent of load(), update(), calc_traces() run in sequence.
-        Keyword arguments are passed to update().
+        Roughly the equivalent running load(), update(), and
+        calc_trace() in sequence.  Keyword arguments are passed to the
+        update() method.
+
+        NOTE: The update() method is only run if keyword arguments
+        (`kwargs`) are supplied, or if the `ifo` attribute has
+        changed.
 
         """
         self.load()
         self.update(**kwargs)
+
+        ifo = kwargs.get('ifo', getattr(self, 'ifo'))
+        if ifo:
+            if not hasattr(ifo, '_orig_keys'):
+                logger.debug("new ifo detected")
+                ifo._orig_keys = tuple(k for k, v in ifo.walk())
+                ifo_hash = ifo.hash()
+                kwargs['ifo'] = ifo
+            else:
+                ifo_hash = ifo.hash(ifo._orig_keys)
+                if ifo_hash != getattr(self, '_ifo_hash', 0):
+                    logger.debug("ifo hash change")
+                    kwargs['ifo'] = self.ifo
+            self._ifo_hash = ifo_hash
+        if kwargs:
+            self.update(**kwargs)
+
         return self.calc_trace()
 
 

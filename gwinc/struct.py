@@ -222,6 +222,8 @@ class Struct(object):
 
         """
         for k,v in self.__dict__.items():
+            if k[0] == '_':
+                continue
             if isinstance(v, type(self)):
                 for sk,sv in v.walk():
                     yield k+'.'+sk, sv
@@ -233,6 +235,25 @@ class Struct(object):
                 except (AttributeError, TypeError):
                     yield k, v
 
+    def hash(self, keys=None):
+        """Hash of Struct.walk() data (recursive)
+
+        """
+        def filter_keys(kv):
+            k, v = kv
+            if keys:
+                return k in keys
+            else:
+                return True
+        def map_tuple(kv):
+            k, v = kv
+            if isinstance(v, list):
+                return k, tuple(v)
+            else:
+                return k, v
+        return hash(tuple(sorted(
+            map(map_tuple, filter(filter_keys, self.walk()))
+        )))
 
     def diff(self, other):
         """Return tuple of differences between target IFO.
