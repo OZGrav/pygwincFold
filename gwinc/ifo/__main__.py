@@ -35,11 +35,11 @@ def main():
         range_pad = max(len(name), range_pad)
 
     for name, budget in budgets.items():
-        data = budget.calc()
+        trace = budget.run()
         try:
             import inspiral_range
             label_range = ' {:>6.0f} Mpc'.format(
-                inspiral_range.range(freq, data),
+                inspiral_range.range(freq, trace.psd),
             )
         except ModuleNotFoundError:
             label_range = ''
@@ -49,7 +49,7 @@ def main():
             pad=range_pad,
             range=label_range,
         )
-        ax.loglog(freq, np.sqrt(data), label=label, lw=2)
+        ax.loglog(freq, trace.asd, label=label, lw=2)
 
     ax.grid(
         True,

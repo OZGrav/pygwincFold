@@ -7,6 +7,7 @@ import numpy as np
 
 from .ifo import IFOS
 from .struct import Struct
+from .plot import plot_budget
 from .plot import plot_noise
 
 
@@ -115,9 +116,10 @@ def gwinc(freq, ifo, source=None, plot=False, PRfixed=True):
 
     # construct matgwinc-compatible noises structure
     noises = {}
-    for name, (data, style) in traces.items():
-        noises[style.get('label', name)] = data
-    noises['Freq'] = freq
+    for name, trace in traces.items():
+        noises[name] = trace.psd
+    noises['Total'] = traces.psd
+    noises['Freq'] = traces.freq
 
     pbs = ifo.gwinc.pbs
     parm = ifo.gwinc.parm
@@ -164,6 +166,6 @@ def gwinc(freq, ifo, source=None, plot=False, PRfixed=True):
             logger.info('BBH Inspiral Range:     ' + str(score.effr0bh) + ' Mpc/ z = ' + str(score.zHorizonBH))
             logger.info('Stochastic Omega: %4.1g Universes' % score.Omega)
 
-        plot_noise(ifo, traces, **plot_style)
+        plot_budget(traces, **plot_style)
 
     return score, noises, ifo
