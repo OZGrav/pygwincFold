@@ -129,6 +129,7 @@ class BudgetItem:
             self.freq = freq
         for key, val in kwargs.items():
             setattr(self, key, val)
+        self._loaded = False
 
     @property
     def name(self):
@@ -226,13 +227,17 @@ class Noise(BudgetItem):
         calc_trace() in sequence.  Keyword arguments are passed to the
         update() method.
 
+        NOTE: The load status is cached such that subsequent calls to
+        this method will not re-execute the load() method.
+
         NOTE: The update() method is only run if keyword arguments
         (`kwargs`) are supplied, or if the `ifo` attribute has
         changed.
 
         """
-        self.load()
-        self.update(**kwargs)
+        if not self._loaded:
+            self.load()
+            self._loaded = True
 
         ifo = kwargs.get('ifo', getattr(self, 'ifo'))
         if ifo:
