@@ -1,56 +1,23 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-from setuptools import find_packages, setup
+# import sys
+# import versioneer
+from setuptools import setup
 
 
-version = '0.1'
+# if {'build_sphinx'}.intersection(sys.argv):
+#     setup_requires.append('sphinx')
+# if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
+#     setup_requires.append('pytest-runner')
 
 
-setup_args = dict(
-    name             = 'pygwinc',
-    version          = version,
-    url              = 'https://git.ligo.org/gwinc/pygwinc',
-    author           = 'LIGO Laboratory',
-    author_email     = 'jrollins@ligo.caltech.edu ',
-    description      = "Gravitation Wave Interferometer Noise Calculator",
-    license          = 'Copyright 2018 LIGO Laboratory',
-    keywords         = 'Noise, LIGO, Gravitational Wave,',
-    classifiers = [
-        'Topic :: Scientific/Engineering',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+setup(
+    setup_requires=[
+        'setuptools >= 30.3.0',
+        'setuptools_scm',
     ],
-
-    install_requires = [
-        'h5py',
-        'ipython',
-        'matplotlib',
-        'numpy',
-        'PyPDF2',
-        'pyyaml',
-        'scipy',
-    ],
-
-    packages = find_packages(
-        exclude = ['docs',],
-    ),
-
-    entry_points={
-        'console_scripts': [
-            'gwinc = gwinc.__main__:main',
-        ],
-    },
-
-    include_package_data = True,
-    zip_safe = False,
+    use_scm_version={
+        'write_to': 'gwinc/_version.py',
+        'write_to_template': '__version__ = "{version}"',
+    }
+    # version=versioneer.get_version(),
+    # cmdclass=versioneer.get_cmdclass(),
 )
-
-if __name__ == "__main__":
-    setup(**setup_args)
