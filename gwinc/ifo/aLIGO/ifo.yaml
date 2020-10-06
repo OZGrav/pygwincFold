@@ -203,14 +203,6 @@ Materials:
     Indexhighn: 2.09              # 2020 LMA
     Phihighn: 3.89e-4             # loss angle at 100Hz (Gras 2020)
     Phihighn_slope: 0.1
-    # Following are optional parameters to for providing separate Bulk and
-    # Shear loss angles and to include photoelastic effect in Coatings
-    # Brownian noise calculation.
-    # lossBhighn: 3.89e-4         # Bulk loss angle at 100 Hz
-    # lossBhighn_slope: 0.1       # Bulk loss angle slope
-    # lossShighn: 3.89e-4         # Shear loss angle at 100 Hz
-    # lossShighn_slope: 0.1       # Shear loss angle slope
-    # PEThighn: 0.1095            # Hong et al . PRD 87, 082001 (2013) A.1
 
     ## low index material: silica
     Ylown: 70e9                   # 2020 LMA
@@ -225,18 +217,6 @@ Materials:
                                   # slopes between 0 and 0.3, depending on
                                   # deposition method. Slawek's analysis in
                                   # 10.1103/PhysRevD.98.122001 assumes zero slope.
-    # Following are optional parameters to for providing separate Bulk and
-    # Shear loss angles and to include photoelastic effect in Coatings
-    # Brownian noise calculation.
-    # lossBlown:  2.3e-5         # Bulk loss angle at 100 Hz
-    # lossBlown_slope: 0         # Bulk loss angle slope
-    # lossSlown: 2.3e-5          # Shear loss angle at 100 Hz
-    # lossSlown_slope: 0         # Shear loss angle slope
-    # PETlown: 0.269             # Hong et al . PRD 87, 082001 (2013) A.1
-
-    # Indicator for including effect of amplitude noise due to coatings
-    # brownian noise. Set to 'yes' for including. Otherwise would be ignored.
-    # IncCoatBrAmpNoise: 'yes'     # Hong et al . PRD 87, 082001 (2013) II.E
 
   ## Substrate Material parameters--------------------------------------------
   Substrate:
