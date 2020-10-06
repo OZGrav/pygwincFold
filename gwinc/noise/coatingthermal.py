@@ -10,25 +10,62 @@ from ..const import BESSEL_ZEROS as zeta
 from ..const import J0M as j0m
 
 
-def coating_brownian(f, materials, wavelength, wBeam, dOpt):
-    """Optical coating Brownian thermal displacement noise spectrum
+def coating_brownian(f, materials, wavelength, wBeam, dOpt,
+                     Ic=None, mTi=None):
+    """Coating brownian noise for a given collection of coating layers
 
-    :f: frequency array in Hz
-    :materials: gwinc optic materials structure
-    :wavelength: laser wavelength
-    :wBeam: beam radius (at 1 / e^2 power)
-    :dOpt: coating layer thickness array (Nlayer x 1)
+    This function calculates Coating Brownian noise using
+    Hong et al . PRD 87, 082001 (2013).
+    All references to 'the paper', 'Eq' and 'Sec' are to this paper.
+
+    ***Important Note***
+    Inside this function phi is used for denoting the phase shift suffered
+    by light in one way propagation through a layer. This is in conflict
+    with present nomenclature everywhere else where it is used as loss angle.
 
     The layers are assumed to be alernating low-n high-n layers, with
     low-n first.
+    Inputs:
+             f = frequency vector in Hz
+     materials = gwinc optic materials structure
+    wavelength = laser wavelength
+         wBeam = beam radius (at 1 / e**2 power)
+          dOpt = the optical thickness, normalized by lambda, of each
+                 coating layer.
+    New optional arguments:
+            Ic = Circulating Laser Power falling on the Mirror (W).
+                 If provided, amplitude noise due to coating brownian noise
+                 will be calculated and its effect on the phase noise will be
+                 added. If None(default), this effect will be ignored.
+           mTi = Mirror Transmittance. If None(default), calculated complex
+                 reflectivity of the mirror will be used for calculating the
+                 transmittance of the mirror.
+    The following new optional arguments should be made available in the
+    Materials object to provide separate Bulk and Shear loss angles and to
+    observe effect of photoelasticity:*
+     lossBlown = Coating Bulk Loss Angle of Low Refrac.Index layer @ 100Hz
+     lossSlown = Coating Shear Loss Angle of Low Refrac. Index layer @ 100Hz
+    lossBhighn = Coating Bulk Loss Angle of High Refrac. Index layer @ 100Hz
+    lossShighn = Coating Shear Loss Angle of High Refrac. Index layer @ 100Hz
+  lossBlown_slope = Coating Bulk Loss Angle Slope of Low Refrac. Index layer
+  lossSlown_slope = Coating Shear Loss Angle Slope of Low Refrac. Index layer
+  lossBhighn_slope = Coating Bulk Loss Angle Slope of High Refrac. Index layer
+  lossShighn_slope = Coating Shear Loss Angle Slope of High Refrac. Index layer
+       PETlown = Relevant component of Photoelastic Tensor of High n layer*
+      PEThighn = Relevant component of Photoelastic Tensor of Low n layer*
 
-    :returns: displacement noise power spectrum at :f:
+    Returns:
+    SbrZ = Brownian noise spectra for one mirror in m**2 / Hz
 
-    Added by G Harry 8/3/02 from work by Nakagawa, Gretarsson, et al.
-    Expanded to reduce approximation, GMH 8/03
-    Modified to return strain noise, PF 4/07
-    Modified to accept coating with non-quater-wave layers, mevans 25 Apr 2008
-
+    *
+    Choice of PETlown and PEThighn can be inspired from sec. A.1. of the paper.
+    There, values are chosen to get the longitudnal coefficent of
+    photoelasticity as -0.5 for Tantala and -0.27 for Silica.
+    These values also need to be added in Materials object.
+    *
+    If the optional arguments are not present, Phihighn and Philown will be
+    used as both Bulk and Shear loss angles and PET coefficients will be set
+    to 0.
     """
     # extract substructures
     sub = materials.Substrate
@@ -36,31 +73,44 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt):
 
     # Constants
     kBT = const.kB * sub.Temp
+    c = const.c
 
     # substrate properties
-    Ysub = sub.MirrorY         # Young's Modulous
-    pratsub = sub.MirrorSigma  # Poisson Ratio
+    Ysub = sub.MirrorY            # Young's Modulous
+    pratsub = sub.MirrorSigma     # Poisson Ratio
+    nsub = sub.RefractiveIndex    # Refractive Index
 
     # coating properties
     Yhighn = coat.Yhighn
     sigmahighn = coat.Sigmahighn
-    phihighn = coat.Phihighn
     nH = coat.Indexhighn
+    if 'PEThighn' in coat:
+        PEThighn = coat.PEThighn
+    else:
+        PEThighn = 0.0
 
     Ylown = coat.Ylown
     sigmalown = coat.Sigmalown
-    philown = coat.Philown
     nL = coat.Indexlown
+    if 'PETlown' in coat:
+        PETlown = coat.PETlown
+    else:
+        PETlown = 0.0
+
+    # Loss Angles
+    lossBhighn, lossShighn, lossBlown, lossSlown = interpretLossAngles(coat)
 
     # make vectors of material properties
-    nN = np.zeros(len(dOpt))
-    yN = np.zeros(len(dOpt))
-    pratN = np.zeros(len(dOpt))
-    phiN = np.zeros(len(dOpt))
+    nol = len(dOpt)       # Number of layers
+    nN = np.zeros(nol)
+    yN = np.zeros(nol)
+    pratN = np.zeros(nol)
+    CPE = np.zeros(nol)
 
     # make simple alternating structure (low-index, high-index doublets)
     # (adapted from the more general calculation in
-    #  Yam, W., Gras, S., & Evans, M. Multimaterial coatings with reduced thermal noise.
+    #  Yam, W., Gras, S., & Evans, M. Multimaterial coatings with reduced
+    #  thermal noise.
     #  Physical Review D, 91(4), 042002.  (2015).
     #  http://doi.org/10.1103/PhysRevD.91.042002 )
     nN[::2] = nL
@@ -72,47 +122,135 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt):
     pratN[::2] = sigmalown
     pratN[1::2] = sigmahighn
 
-    phiN[::2] = philown
-    phiN[1::2] = phihighn
+    # Coefficient of photoelastic effect
+    # PRD 87, 082001 Eq (A6)
+    CPE[::2] = -0.5*PETlown*nL**3
+    CPE[1::2] = -0.5*PEThighn*nH**3
 
     # geometrical thickness of each layer and total
     dGeo = wavelength * np.asarray(dOpt) / nN
-    #dCoat = np.sum(dGeo)
 
-    ###################################
-    # Brownian
-    ###################################
-    # coating reflectivity
-    dcdp = getCoatRefl(materials, dOpt)[1]
+    # WaveLength of light in each layer
+    lambdaN = wavelength / nN
 
-    # Z-dir (1 => away from the substrate, -1 => into the substrate)
-    zdir = -1
-    dcdp_z = zdir * dcdp  # z-dir only matters here
+    # Calculate rho and derivatives of rho
+    # with respect to both phi_k and r_j
+    rho, dLogRho_dPhik, dLogRho_dRk, r = getCoatReflAndDer(nN, nsub, dOpt)
 
-    # layer contributions, b_j (eq 1) from doi:10.1103/PhysRevD.91.042002, errors corrected
-    brLayer = ( 1/(1-pratN) *
-                ( (1-nN*dcdp_z)**2 * (1-2*pratN)*(1+pratN)*Ysub / ((1-2*pratsub)*(1+pratsub)*yN) +
-                  (1-2*pratsub)*(1+pratsub)*yN / ((1+pratN)*Ysub) ) )
+    # Define the function epsilon as per Eq (25)
+    # Split epsilon function as:
+    # Epsilon = Ep1 - Ep2 * cos(2k0n(z-zjp1)) - Ep3 * sin(2k0n(z-zjp1))
 
-    # sum them up for total
-    w = 2 * pi * f
+    # Part 1 of epsilon function
+    Ep1 = (nN + CPE) * dLogRho_dPhik[:-1]
+    # Part 2 of epsilon function (Prefactor of cosine term)
+    Ep2 = CPE * (dLogRho_dPhik[:-1] * (1 - r[:-1]**2) / (2*r[:-1])
+                 - (dLogRho_dPhik[1:] * (1 + r[:-1]**2) / (2 * r[:-1])))
+    # Part 3 of epsilon function (Prefactor of sine term)
+    Ep3 = (1 - r[:-1]**2) * CPE * dLogRho_dRk[:-1]
 
-    is_low_slope = 'Philown_slope' in coat
-    is_high_slope = 'Phihighn_slope' in coat
+    # Define (1 - Im(epsilon)/2)
+    Ip1 = 1 - imag(Ep1) / 2  # First part of (1 - Im(epsilon)/2)
+    Ip2 = imag(Ep2) / 2      # Prefactor to cosine in (1 - Im(epsilon)/2)
+    Ip3 = imag(Ep3) / 2      # Prefactor to sine in (1 - Im(epsilon)/2)
 
-    if (not is_low_slope) and (not is_high_slope):
-        # this is the old code for frequency independent loss
-        SbrZ = (4 * kBT / (pi * wBeam**2 * w)) * \
-               sum(dGeo * brLayer * phiN) * (1 - pratsub - 2 * pratsub**2) / Ysub
+    # Define transfer functions from bulk and shear noise fields to layer
+    # thickness and surface height as per Table I in paper
+    C_B = np.sqrt(0.5*(1+pratN))
+    C_SA = np.sqrt(1 - 2*pratN)
+    D_B = ((1 - pratsub - 2*pratsub**2)*yN/(np.sqrt(2*(1+pratN))*Ysub))
+    D_SA = -((1 - pratsub - 2*pratsub**2)*yN/(2*np.sqrt(1-2*pratN)*Ysub))
+    D_SB = (np.sqrt(3)*(1-pratN)*(1 - pratsub - 2*pratsub**2)*yN
+            / (2*np.sqrt(1-2*pratN)*(1+pratN)*Ysub))
+
+    # Calculating effective beam area on each layer
+    # Assuming the beam radius does not change significantly through the
+    # depth of the mirror.
+    Aeff = pi*(wBeam**2)
+
+    # PSD at single layer with thickness equal to WaveLength
+    # in the medium Eq (96)
+    S_Bk = np.zeros((nol, len(f)))
+    S_Bk[::2, :] = (4 * kBT * lambdaN[0] * lossBlown(f)
+                    * (1 - pratN[0] - 2 * pratN[0]**2)
+                    / (3 * pi * f * yN[0] * ((1 - pratN[0])**2) * Aeff))
+    S_Bk[1::2, :] = (4 * kBT * lambdaN[1] * lossBhighn(f)
+                     * (1 - pratN[1] - 2 * pratN[1]**2)
+                     / (3 * pi * f * yN[1] * ((1 - pratN[1])**2) * Aeff))
+
+    # Shear
+    S_Sk = np.zeros((nol, len(f)))
+    S_Sk[::2, :] = (4 * kBT * lambdaN[0] * lossSlown(f)
+                    * (1 - pratN[0] - 2 * pratN[0]**2)
+                    / (3 * pi * f * yN[0] * ((1 - pratN[0])**2) * Aeff))
+    S_Sk[1::2, :] = (4 * kBT * lambdaN[1] * lossShighn(f)
+                     * (1 - pratN[1] - 2 * pratN[1]**2)
+                     / (3 * pi * f * yN[1] * ((1 - pratN[1])**2) * Aeff))
+
+    # Coefficients q_j from Eq (94
+    # See https://dcc.ligo.org/T2000552 for derivation
+    k0 = 2 * pi / wavelength
+    q_Bk = (+ 8 * C_B * (D_B + C_B * Ip1) * Ip3
+            + 2 * C_B**2 * Ip2 * Ip3
+            + 4 * (2 * D_B**2 + 4 * C_B * D_B * Ip1
+                   + C_B**2 * (2 * Ip1**2 + Ip2**2 + Ip3**2)
+                   ) * k0 * nN * dGeo
+            - 8 * C_B * (D_B + C_B * Ip1) * Ip3 * np.cos(2 * k0 * nN * dGeo)
+            - 2 * C_B**2 * Ip2 * Ip3 * np.cos(4 * k0 * nN * dGeo)
+            + 8 * C_B * (D_B + C_B * Ip1) * Ip2 * np.sin(2 * k0 * nN * dGeo)
+            + C_B**2 * (Ip2 - Ip3) * (Ip2 + Ip3) * np.sin(4 * k0 * nN * dGeo)
+            ) / (8 * k0 * lambdaN * nN)
+
+    q_Sk = (D_SB**2 * 8 * k0 * nN * dGeo
+            + 8 * C_SA * (D_SA + C_SA * Ip1) * Ip3
+            + 2 * C_SA**2 * Ip2 * Ip3
+            + 4 * (2 * D_SA**2 + 4 * C_SA * D_SA * Ip1
+                   + C_SA**2 * (2 * Ip1**2 + Ip2**2 + Ip3**2)
+                   ) * k0 * nN * dGeo
+            - 8 * C_SA * (D_SA + C_SA * Ip1) * Ip3 * np.cos(2 * k0 * nN * dGeo)
+            - 2 * C_SA**2 * Ip2 * Ip3 * np.cos(4 * k0 * nN * dGeo)
+            + 8 * C_SA * (D_SA + C_SA * Ip1) * Ip2 * np.sin(2 * k0 * nN * dGeo)
+            + C_SA**2 * (Ip2 - Ip3) * (Ip2 + Ip3) * np.sin(4 * k0 * nN * dGeo)
+            ) / (8 * k0 * lambdaN * nN)
+
+    # S_Xi as per Eq(94)
+    S_Xi = (np.tensordot(q_Bk, S_Bk, axes=1)
+            + np.tensordot(q_Sk, S_Sk, axes=1))
+
+    # From Sec II.E. Eq.(41)
+    # Conversion of brownian amplitude noise to displacement noise
+    if Ic is not None:
+        if mTi is None:
+            mTi = 1-np.abs(rho)**2    # Transmittance of optic
+
+        # Define Re(epsilon)/2
+        Rp1 = np.real(Ep1) / 2   # First part of Re(epsilon)/2
+        Rp2 = -np.real(Ep2) / 2  # Prefactor to cosine in Re(epsilon)/2
+        Rp3 = -np.real(Ep3) / 2  # Prefactor to sine in Re(epsilon)/2
+        # Coefficients p_j from Eq (95)
+        # See https://dcc.ligo.org/T2000552 for derivation
+        p_BkbyC = (+ 8 * Rp1 * Rp3
+                   + 2 * Rp2 * Rp3
+                   + 4 * (2 * Rp1**2 + Rp2**2 + Rp3**2) * k0 * nN * dGeo
+                   - 8 * Rp1 * Rp3 * np.cos(2 * k0 * nN * dGeo)
+                   - 2 * Rp2 * Rp3 * np.cos(4 * k0 * nN * dGeo)
+                   + 8 * Rp1 * Rp2 * np.sin(2 * k0 * nN * dGeo)
+                   + (Rp2 - Rp3) * (Rp2 + Rp3) * np.sin(4 * k0 * nN * dGeo)
+                   ) / (8 * k0 * lambdaN * nN)
+        p_Bk = p_BkbyC * C_B**2
+        p_Sk = p_BkbyC * C_SA**2
+
+        # S_Zeta as per Eq(95)
+        S_Zeta = (np.tensordot(p_Bk, S_Bk, axes=1)
+                  + np.tensordot(p_Sk, S_Sk, axes=1))
+
+        AmpToDispConvFac = ((32 * Ic)
+                            / (materials.MirrorMass * wavelength
+                               * f**2 * c * 2 * pi * sqrt(mTi)))
+        # Adding the two pathways of noise contribution as correlated noise
+        SbrZ = (sqrt(S_Xi) + AmpToDispConvFac * sqrt(S_Zeta))**2
     else:
-        SbrZ = (4 * kBT / (pi * wBeam**2 * w)) * \
-               (1 - pratsub - 2 * pratsub**2) / Ysub
-        SbrZ *= (np.sum(dGeo[::2] * brLayer[::2] * phiN[::2]) * (f / 100)**(coat.Philown_slope) +
-                 np.sum(dGeo[1::2] * brLayer[1::2] * phiN[1::2]) * (f / 100)**(coat.Phihighn_slope))
-
-    # for the record: evaluate summation in eq 1 of PhysRevD.91.042002
-    # normalized by total coating thickness to make it unitless
-    #cCoat = np.sum(dGeo * brLayer * phiN) / dCoat
+        SbrZ = S_Xi
 
     return SbrZ
 
@@ -123,7 +261,7 @@ def coating_thermooptic(f, materials, wavelength, wBeam, dOpt):
     :f: frequency array in Hz
     :materials: gwinc optic materials structure
     :wavelength: laser wavelength
-    :wBeam: beam radius (at 1 / e^2 power)
+    :wBeam: beam radius (at 1 / e**2 power)
     :dOpt: coating layer thickness array (Nlayer x 1)
 
     :returns: tuple of:
@@ -156,7 +294,7 @@ def getCoatTOPos(materials, wavelength, wBeam, dOpt):
 
     :materials: gwinc optic materials structure
     :wavelength: laser wavelength
-    :wBeam: beam radius (at 1 / e^2 power)
+    :wBeam: beam radius (at 1 / e**2 power)
     :dOpt: coating layer thickness array (Nlayer x 1)
 
     :returns: tuple of:
@@ -208,7 +346,7 @@ def getCoatThickCorr(f, materials, wavelength, dOpt, dTE, dTR):
     :f: frequency array in Hz
     :materials: gwinc optic materials structure
     :wavelength: laser wavelength
-    :wBeam: beam radius (at 1 / e^2 power)
+    :wBeam: beam radius (at 1 / e**2 power)
     :dOpt: coating layer thickness array (Nlayer x 1)
 
     Uses correction factor from LIGO-T080101, "Thick Coating
@@ -221,8 +359,8 @@ def getCoatThickCorr(f, materials, wavelength, dOpt, dTE, dTR):
     # For comparison in the bTR = 0 limit, the
     # equation from Fejer (PRD70, 2004)
     # modified so that gFC -> 1 as xi -> 0
-    #  gTC = (2 ./ (R * xi.^2)) .* (sh - s + R .* (ch - c)) ./ ...
-    #    (ch + c + 2 * R * sh + R^2 * (ch - c));
+    #  gTC = (2 ./ (R * xi.**2)) .* (sh - s + R .* (ch - c)) ./ ...
+    #    (ch + c + 2 * R * sh + R**2 * (ch - c));
     # which in the limit of xi << 1 becomes
     #  gTC = 1 - xi * (R - 1 / (3 * R));
 
@@ -266,10 +404,10 @@ def getCoatThermal(f, materials, wBeam):
 
     :f: frequency array in Hz
     :materials: gwinc optic material structure
-    :wBeam: beam radius (at 1 / e^2 power)
+    :wBeam: beam radius (at 1 / e**2 power)
 
     :returns: tuple of:
-    SsurfT = power spectra of thermal fluctuations in K^2 / Hz
+    SsurfT = power spectra of thermal fluctuations in K**2 / Hz
     rdel = thermal diffusion length at each frequency in m
 
     """
@@ -423,7 +561,7 @@ def getCoatTOPhase(nIn, nOut, nLayer, dOpt, aLayer, bLayer, sLayer):
     :aLayer: change in geometrical thickness with temperature
              = the effective thermal expansion coeffient of the coating layer
     :bLayer: change in refractive index with temperature
-             = dn/dT 
+             = dn/dT
              = dd/dT - n * a
 
     :returns: tuple of:
@@ -468,7 +606,7 @@ def getCoatFiniteCorr(materials, wavelength, wBeam, dOpt):
 
     :materials: gwinc optic materials structure
     :wavelength: laser wavelength
-    :wBeam: beam radius (at 1 / e^2 power)
+    :wBeam: beam radius (at 1 / e**2 power)
     :dOpt: coating layer thickness array (Nlayer x 1)
 
     Uses correction factor from PLA 2003 vol 312 pg 244-255
@@ -536,7 +674,7 @@ def getCoatFiniteCorr(materials, wavelength, wBeam, dOpt):
     # between eq 77 and 78
     km = zeta / R
     Qm = exp(-2 * km * H)
-    pm = exp(-km**2 * r0**2 / 4) / j0m # left out factor of pi * R^2 in denominator
+    pm = exp(-km**2 * r0**2 / 4) / j0m # left out factor of pi * R**2 in denominator
 
     # eq 88
     Lm = Xr - Zf * (1 + sigS) + (Yr * (1 - 2 * sigS) + Zf - 2 * Cr) * \
@@ -754,3 +892,141 @@ def getCoatRefl2(nIn, nOut, nLayer, dOpt):
     dcdp = -imag(dr_dphi / rCoat)  ### Where did this minus come from???
 
     return rCoat, dcdp, rbar, r
+
+
+def getCoatReflAndDer(nN, nsub, dOpt):
+    '''
+    Helper function for coating_brownian_hong().
+    Follows Hong et al . PRD 87, 082001 (2013) Sec V.A.
+    This function calculates derivatives of complex reflectivity of Coating
+    with respect to phase shifts through each layer and reflectivities of
+    each interface
+    Input:
+
+      nN = Refractive indices of coatings layers
+    nsub = Refractive Index of Substrate
+    dOpt = optical thickness / lambda of each layer,
+           geometrical thickness * refractive index / lambda
+
+    Returns:
+     delLogRho_delPhik = Partial derivative of log of total effective
+                         reflectivity of coating with respect to phase shifts
+                         in each layer.
+    delLogRho_delReflk = Partial derivative of log of total effective
+                         reflectivity of coating with respect to reflectivity
+                         of each interface.
+    '''
+    nol = len(dOpt)  # Number of layers in coating
+    # Reflectivities and transmitivities
+    # r[j] is reflectivity from (j-1)th and (j)th layer interface
+    # Here r[0] is reflectivity from air and 0th layer
+    # and r[-1] is reflectivity between last layer and substrate
+    Refl = np.zeros(nol+1)
+    Refl[0] = (1 - nN[0]) / (1 + nN[0])
+    Refl[1:-1] = (nN[:-1] - nN[1:]) / (nN[:-1] + nN[1:])
+    Refl[-1] = (nN[-1] - nsub) / (nN[-1] + nsub)
+    # Note the shift from nomenclature
+    # Phi is reserved for denoting one-way phase shift suffered by light
+    # during propagation through a layer
+    Phi = np.asarray(dOpt) * 2 * pi
+
+    # Define rho_k as reflectivity of
+    # k layers starting from (N-k-1)th lyer to (N-1)th layer
+    # So rhoN[-1] is reflectivity for  no layers but interface from
+    #                                              last layer to substrate
+    # rhoN[0] is total complex reflectivity of the coating stack.
+    rhoN = np.zeros_like(Refl, np.complex128)
+
+    phiNmkm1 = np.flip(Phi)             # phi_{N-k-1}
+    rNmkm1 = np.flip(Refl[:-1])              # r_{N-k-1}
+    exp2iphiNmkm1 = np.exp(2j*phiNmkm1)      # exp(2i phi_{N-k-1})
+
+    # Recursion relation for complex reflectivity
+    # See https://dcc.ligo.org/T2000552 for derivation
+    rhoN[0] = Refl[-1]
+    for k in range(len(Refl)-1):
+        rhoN[k+1] = ((rNmkm1[k] + exp2iphiNmkm1[k] * rhoN[k])
+                     / (1 + exp2iphiNmkm1[k] * rNmkm1[k] * rhoN[k]))
+
+    denTerm = (1 + exp2iphiNmkm1 * rNmkm1 * rhoN[:-1])**2
+
+    # Derivatives of rho_{k+1} wrt to rho_{k}, r_{N-k-1} and phi_{N-k-1}
+    delRhokp1_delRhok = exp2iphiNmkm1 * (1 - rNmkm1**2) / denTerm
+    delRhokp1_delRNmkm1 = np.append(1, ((1 - (exp2iphiNmkm1*rhoN[:-1])**2)
+                                        / denTerm))
+    delRhokp1_delPhiNmkm1 = np.append(0, -2j * rhoN[:-1] * delRhokp1_delRhok)
+
+    # Derivative of rho_{N} wrt to rho_{N-j}
+    delRhoN_delRhoNmj = np.append(1, np.cumprod(np.flip(delRhokp1_delRhok)))
+
+    # Derivative of rho_{N} wrt to r_k and phi_k
+    delRho_delRk = - delRhoN_delRhoNmj * np.flip(delRhokp1_delRNmkm1)
+    delRho_delPhik = - delRhoN_delRhoNmj * np.flip(delRhokp1_delPhiNmkm1)
+    delLogRho_delReflk = delRho_delRk / rhoN[-1]
+    delLogRho_delPhik = delRho_delPhik / rhoN[-1]
+    delLogRho_delPhik[-1] = 0        # Define this as per Eq (26)
+
+    return rhoN[-1], delLogRho_delPhik, delLogRho_delReflk, Refl
+
+
+def interpretLossAngles(coat):
+    '''
+    Helper function for coating_brownian().
+
+    Creates function from 100 Hz value of loss angle and is logarithmic
+    slope.
+
+    if separate bulk and shear loss angles are not provided as
+    lossBhighn, lossShighn, lossBlown and lossSlown
+    then earlier version names of Phihighn and Philown are searched for and
+    used as Bulk loss angle while setting Shear loss angles to zero.
+
+    Input argument:
+    coat = Coating object containing loss angle values or expressions.
+    Returns:
+    lossBlown = Coating Bulk Loss Angle of Low Refractive Index layer
+    lossSlown = Coating Shear Loss Angle of Low Refractive Index layer
+    lossBhighn = Coating Bulk Loss Angle of High Refractive Index layer
+    lossShighn = Coating Shear Loss Angle of High Refractive Index layer
+    '''
+    if 'lossBhighn' in coat and 'lossShighn' in coat:
+        if 'lossBhighn_slope' in coat:
+            def lossBhighn(f):
+                return coat.lossBhighn * (f / 100)**coat.lossBhighn_slope
+        else:
+            def lossBhighn(f): return coat.lossBhighn
+        if 'lossShighn_slope' in coat:
+            def lossShighn(f):
+                return coat.lossShighn * (f / 100)**coat.lossShighn_slope
+        else:
+            def lossShighn(f): return coat.lossShighn
+    else:
+        # Use Phihighn if specific Bulk & Shear loss angles not provided
+        if 'Phihighn_slope' in coat:
+            def Phihighn(f):
+                return coat.Phihighn * (f / 100)**coat.Phihighn_slope
+            lossBhighn = lossShighn = Phihighn
+        else:
+            lossBhighn = lossShighn = lambda f: coat.Phihighn
+
+    if 'lossBlown' in coat and 'lossSlown' in coat:
+        if 'lossBlown_slope' in coat:
+            def lossBlown(f):
+                return coat.lossBlown * (f / 100)**coat.lossBlown_slope
+        else:
+            def lossBlown(f): return coat.lossBlown
+        if 'lossSlown_slope' in coat:
+            def lossSlown(f):
+                return coat.lossSlown * (f / 100)**coat.lossSlown_slope
+        else:
+            def lossSlown(f): return coat.lossSlown
+    else:
+        # Use Philown if specific Bulk & Shear loss angles not provided
+        if 'Philown_slope' in coat:
+            def Philown(f):
+                return coat.Philown * (f / 100)**coat.Philown_slope
+            lossBlown = lossSlown = Philown
+        else:
+            lossBlown = lossSlown = lambda f: coat.Philown
+
+    return lossBhighn, lossShighn, lossBlown, lossSlown

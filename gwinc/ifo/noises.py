@@ -296,10 +296,21 @@ class CoatingBrownian(nb.Noise):
         w0, wBeam_ITM, wBeam_ETM = arm_cavity(self.ifo)
         dOpt_ITM = coating_thickness(self.ifo, 'ITM')
         dOpt_ETM = coating_thickness(self.ifo, 'ETM')
+        mTi_ITM = None
+        mTi_ETM = None
+        Ic = None
+        if 'IncCoatBrAmpNoise' in materials.Coating:
+            if materials.Coating.IncCoatBrAmpNoise.lower() == 'yes':
+                mTi_ITM = self.ifo.Optics.ITM.Transmittance
+                mTi_ETM = self.ifo.Optics.ETM.Transmittance
+                Ic = ifo_power(self.ifo)[1]   # Circulating Arm Power
+                precomp_mirror(self.freq, self.ifo)
         nITM = noise.coatingthermal.coating_brownian(
-            self.freq, materials, wavelength, wBeam_ITM, dOpt_ITM)
+            self.freq, materials, wavelength, wBeam_ITM,
+            dOpt_ITM, Ic, mTi_ITM)
         nETM = noise.coatingthermal.coating_brownian(
-            self.freq, materials, wavelength, wBeam_ETM, dOpt_ETM)
+            self.freq, materials, wavelength, wBeam_ETM,
+            dOpt_ETM, Ic, mTi_ETM)
         return (nITM + nETM) * 2
 
 
