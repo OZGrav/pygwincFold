@@ -273,7 +273,6 @@ Optics:
   # zz = loadmat('CryogenicLIGO/Sensitivity/GWINC/optRuns/' + qopt_mat)
   ITM:
     SubstrateAbsorption: 1e-3   # 1/m; 10 ppm/cm for MCZ Si
-    BeamRadius: 0.0585          # m; 1/e^2 power radius w1
     CoatingAbsorption: 1e-6     # absorption of ITM
     Transmittance: 2e-3         # zz['x'][0][3]
     #CoatingThicknessLown: 0.308
@@ -294,7 +293,6 @@ Optics:
       - 0.386738199718736
       - 0.088142365969070
   ETM:
-    BeamRadius: 0.0835                 # m; 1/e^2 power radius w2
     Transmittance: 5e-6                # Transmittance of ETM
     #CoatingThicknessLown: 0.27
     #CoatingThicknessCap: 0.5

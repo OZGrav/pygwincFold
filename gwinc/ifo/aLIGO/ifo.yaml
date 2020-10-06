@@ -251,13 +251,11 @@ Optics:
     dc: 1.5707963                 # pi/2 # demod/detection/homodyne phase
 
   ITM:
-    # BeamRadius: 0.055             # m, 1/e^2 power radius, now in precompIFO
     Transmittance: 0.014
     CoatingThicknessLown: 0.308
     CoatingThicknessCap: 0.5
     CoatingAbsorption: 0.5e-6
   ETM:
-    # BeamRadius: 0.062             # m, 1/e^2 power radius, now in precompIFO
     Transmittance: 5e-6
     CoatingThicknessLown: 0.27
     CoatingThicknessCap: 0.5
