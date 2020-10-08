@@ -10,28 +10,27 @@ from .trace import BudgetTrace
 def precomp(*precomp_funcs, **precomp_fmaps):
     """BudgetItem.calc decorator to add pre-computed functions
 
-    This is intended to decorate BudgetItem.calc() methods with
-    functions that would update the BudgetItem.ifo attribute.  All
-    precomp functions are collected, and executed after attribute
-    update during BudgetItem.update() calls.  They are supplied with
-    the `freq` array and `ifo` Struct attributes as arguments, and are
-    intended to update the `ifo` with derived values needed during
-    subsequent calc() calls.
+    This is intended to decorate BudgetItem.calc() methods with common
+    functions whose return value are cached for later use.  The
+    functions are supplied with the `freq` array and `ifo` Struct
+    attributes as arguments, and their return values are provided as
+    keyword arguments to calc().
 
     For example, if a calc method is defined as:
 
-      @precomp(precomp_foo)
-      @precomp(precomp_bar)
-      def calc(self):
+      @precomp(foo=precomp_foo)
+      @precomp(bar=precomp_bar)
+      def calc(self, foo, bar):
           ...
 
-    then the update method will execute the following after attribute
-    update:
+    then when the budget is run the precomp functions will be executed
+    before calc(), roughly the equivalent of:
 
-      precomp_foo(self.freq, self.ifo)
-      precomp_bar(self.freq, self.ifo)
+      foo = precomp_foo(self.freq, self.ifo)
+      bar = precomp_bar(self.freq, self.ifo)
+      psd = calc(foo=foo, bar=bar)
 
-    The execution state of precomp functions are cached so that the
+    The execution state of each precomp function is cached so that the
     same function is not needlessly executed multiple times.
 
     """
@@ -40,17 +39,39 @@ def precomp(*precomp_funcs, **precomp_fmaps):
             try:
                 func._precomp_list.extend(precomp_funcs)
             except AttributeError:
-                #probably don't need to copy the **kwargs dict
                 func._precomp_list = list(precomp_funcs)
 
         if precomp_fmaps:
             try:
                 func._precomp_mapped.update(precomp_fmaps)
             except AttributeError:
-                #probably don't need to copy the **kwargs dict
                 func._precomp_mapped = dict(precomp_fmaps)
         return func
     return decorator
+
+
+def _precomp_recurse_mapping(func, freq, ifo, _precomp):
+    """Recursively execute @precomp decorator functions
+
+    Recurses down functions which may themselves have precomp
+    decorators, building a **kwargs mapping to pass to the wrapped
+    function call.
+
+    """
+    for pc_func in itertools.chain(
+            getattr(func, '_precomp_list', []),
+            getattr(func, '_precomp_mapped', {}).values(),
+    ):
+        if pc_func in _precomp:
+            continue
+        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp=_precomp)
+        logger.debug("precomp {}".format(pc_func))
+        _precomp[pc_func] = pc_func(freq, ifo, **pc_map)
+
+    kwargs = {
+        name: _precomp[pc_func] for name, pc_func in getattr(func, '_precomp_mapped', {}).items()
+    }
+    return kwargs
 
 
 def quadsum(data):
@@ -65,42 +86,6 @@ def quadsum(data):
     return np.nansum(data, 0)
 
 
-def _precomp_recurse_mapping(func, freq, ifo, _precomp):
-    """
-    Recurses down functions which may themselves have precomp decorators, this
-    builds the **kwarg mapping to pass to the function call, and this mapping
-    is returned
-    """
-    #run the prerequisite precomps first. These typically modify the ifo Struct (yuck)
-    plist_set = _precomp.setdefault("_precomp_list", set())
-    for pc_func in getattr(func, '_precomp_list', []):
-        if pc_func in plist_set:
-            continue
-        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp=_precomp)
-        #now call the function with the built mapping
-        pc_func(freq, ifo, **pc_map)
-        plist_set.add(pc_func)
-
-    #now run the prerequisite mappings. These return values which get mapped
-    precomp_mapping = dict()
-    for name, pc_func in getattr(func, '_precomp_mapped', {}).items():
-        try:
-            PC = _precomp[pc_func]
-        except KeyError:
-            #not in _precomp already
-            pass
-        else:
-            precomp_mapping[name] = PC
-            continue
-        logger.debug("precomp {}".format(pc_func))
-        #build the mapping for the requisite call
-        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp=_precomp)
-        #now call the function with the built mapping
-        PC = pc_func(freq, ifo, **pc_map)
-        precomp_mapping[name] = PC
-
-    return precomp_mapping
-
 class BudgetItem:
     """GWINC BudgetItem class
 
@@ -111,40 +96,20 @@ class BudgetItem:
         """
         return None
 
-    def update(self, _precomp=None, **kwargs):
-        """Update parameters and execute precomp functions.
+    def update(self, **kwargs):
+        """Overload method for updating data.
 
-        The method does two things.  First, any keyword arguments
-        provided are written directly as attribute variables to the
-        class (as with __init__).
+        By default any keyword arguments provided are written directly
+        as attribute variables (as with __init__).
 
-        Second, after attribute update, all functions provided by
-        @precomp decorators to the calc() method will be executed,
-        supplied with the `freq` and `ifo` attributes as arguments.
-        See the `precomp` documentation for more information.
-
-        The `_precomp` keyword argument is for internal use. If provided, it is
-        assumed to be a dictionary of previously executed precomp functions
-        mapped to their return values. Any function included in the dict will
-        not be re-executed, and the dict will be updated with any newly executed
-        functions.
-
-        This method can be overridden, but if it is, it's important to
-        make sure that the method defined in the base class is always
-        executed with e.g.:
+        When overloading this method it is recommended to execute the
+        method from the base class with e.g.:
 
           super().update(**kwargs)
 
         """
         for key, val in kwargs.items():
             setattr(self, key, val)
-        if _precomp is None:
-            _precomp = dict()
-
-        _PCmap = _precomp_recurse_mapping(self.calc, self.freq, self.ifo, _precomp=_precomp)
-        #PCmap is not used for this "dry run" update. _precomp could be cached?
-        _PCmap  # I just refer to _PCmap here to appease the linter
-        return
 
     def calc(self):
         """Overload method for final PSD calculation.
@@ -154,6 +119,12 @@ class BudgetItem:
 
         """
         return None
+
+    def _calc(self, _precomp=None):
+        """internal function to call calc with precomp evaluation"""
+        pcmap = _precomp_recurse_mapping(self.calc, self.freq, self.ifo, _precomp)
+        logger.debug("calc {}".format(self.name))
+        return self.calc(**pcmap)
 
     ##########
 
@@ -219,7 +190,7 @@ class Calibration(BudgetItem):
         e.g. point-by-point product of data and calibration arrays.
 
         """
-        cal = self.calc()
+        cal = self._calc()
         assert data.shape == cal.shape, \
             "data shape does not match calibration ({} != {})".format(data.shape, cal.shape)
         return data * cal
@@ -247,7 +218,7 @@ class Noise(BudgetItem):
             budget=budget,
         )
 
-    def calc_trace(self, calibration=1, calc=True, _precomp = None):
+    def calc_trace(self, calibration=1, calc=True, _precomp=None):
         """Calculate noise and return BudgetTrace object
 
         `calibration` should either be a scalar or a len(self.freq)
@@ -264,13 +235,12 @@ class Noise(BudgetItem):
 
         total = None
         if calc:
-            PCmap = _precomp_recurse_mapping(self.calc, self.freq, self.ifo, _precomp)
-            total = self.calc(**PCmap) * calibration
+            total = self._calc(_precomp) * calibration
 
         return self._make_trace(psd=total)
 
     def run(self, **kwargs):
-        """Calculate budget noise and return BudgetTrace object.
+        """Run full budget and return BudgetTrace object.
 
         Roughly the equivalent running load(), update(), and
         calc_trace() in sequence.  Keyword arguments are passed to the
@@ -288,7 +258,6 @@ class Noise(BudgetItem):
             self.load()
             self._loaded = True
 
-        _precomp = dict()
         ifo = kwargs.get('ifo', getattr(self, 'ifo'))
         if ifo:
             if not hasattr(ifo, '_orig_keys'):
@@ -302,10 +271,12 @@ class Noise(BudgetItem):
                     logger.debug("ifo hash change")
                     kwargs['ifo'] = self.ifo
             self._ifo_hash = ifo_hash
-        if kwargs:
-            self.update(_precomp = _precomp, **kwargs)
 
-        return self.calc_trace(_precomp = _precomp)
+        _precomp = dict()
+        if kwargs:
+            self.update(**kwargs)
+
+        return self.calc_trace(_precomp=_precomp)
 
 
 class Budget(Noise):
@@ -510,16 +481,13 @@ class Budget(Noise):
         for key, val in kwargs.items():
             setattr(self, key, val)
 
-        if _precomp is None:
-            _precomp = dict()
-
         for name, item in itertools.chain(
                 self._cal_objs.items(),
                 self._noise_objs.items()):
             logger.debug("update {}".format(item))
-            item.update(_precomp=_precomp, **kwargs)
+            item.update(**kwargs)
 
-    def calc_noise(self, name, calibration=1, calc=True, _cals=None, _precomp = None):
+    def calc_noise(self, name, calibration=1, calc=True, _cals=None, _precomp=None):
         """Return calibrated individual noise BudgetTrace.
 
         The noise and calibration transfer functions are calculated,
@@ -535,11 +503,8 @@ class Budget(Noise):
                 calibration *= _cals[cal]
             else:
                 obj = self._cal_objs[cal]
-                logger.debug("calc {}".format(obj))
-                PCmap = _precomp_recurse_mapping(obj.calc, self.freq, self.ifo, _precomp)
-                calibration *= obj.calc(**PCmap)
+                calibration *= obj._calc(_precomp)
         noise = self._noise_objs[name]
-        logger.debug("calc {}".format(noise))
         return noise.calc_trace(
             calibration=calibration,
             calc=calc,
@@ -558,15 +523,13 @@ class Budget(Noise):
         trace style info.
 
         """
-        _cals = {}
         if _precomp is None:
             _precomp = dict()
+
+        _cals = {}
         if calc:
             for name, cal in self._cal_objs.items():
-                logger.debug("calc {}".format(cal))
-                PCmap = _precomp_recurse_mapping(cal.calc, self.freq, self.ifo, _precomp)
-                _cals[name] = cal.calc(**PCmap)
-
+                _cals[name] = cal._calc(_precomp)
         budget = []
         for name in self._noise_objs:
             trace = self.calc_noise(
@@ -577,7 +540,6 @@ class Budget(Noise):
                 _precomp=_precomp,
             )
             budget.append(trace)
-
         total = quadsum([trace.psd for trace in budget])
         return self._make_trace(
             psd=total, budget=budget

@@ -367,22 +367,26 @@ from gwinc import nb
 
 
 def precomp_foo(freq, ifo):
-    ifo.Foo = ...
+    pc = Struct()
+    ...
+    return pc
 
 
 def precomp_bar(freq, ifo):
-    ifo.Bar = ...
+    pc = Struct()
+    ...
+    return pc
 
 
 class Noise0(nb.Noise):
-    @nb.precomp(precomp_foo)
-    def calc(self):
+    @nb.precomp(foo=precomp_foo)
+    def calc(self, foo):
         ...
 
 class Noise1(nb.Noise):
-    @nb.precomp(precomp_foo)
-    @nb.precomp(precomp_bar)
-    def calc(self):
+    @nb.precomp(foo=precomp_foo)
+    @nb.precomp(bar=precomp_bar)
+    def calc(self, foo, bar):
         ...
 
 class MyBudget(nb.Budget):

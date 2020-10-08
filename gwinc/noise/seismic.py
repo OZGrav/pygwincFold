@@ -6,20 +6,21 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator as interp1d
 
 
-def seismic_suspension_fitered(sus, in_trans):
+def seismic_suspension_fitered(sus, sustf, in_trans):
     """Seismic displacement noise for single suspended test mass.
 
-    :sus: gwinc suspension structure
+    :sus: suspension Struct
+    :sustf: sus transfer function Struct
     :in_trans: input translational displacement spectrum
 
     :returns: tuple of displacement noise power spectrum at :f:, and
     horizontal and vertical components.
 
     """
-    hTable = sus.hTable
-    vTable = sus.vTable
+    hTable = sustf.hTable
+    vTable = sustf.vTable
 
-    theta = sus.VHCoupling.theta
+    theta = sustf.VHCoupling.theta
 
     # horizontal noise total
     nh = (abs(hTable)**2) * in_trans**2
