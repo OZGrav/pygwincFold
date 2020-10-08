@@ -72,10 +72,14 @@ def _precomp_recurse_mapping(func, freq, ifo, _precomp):
     is returned
     """
     #run the prerequisite precomps first. These typically modify the ifo Struct (yuck)
+    plist_set = _precomp.setdefault("_precomp_list", set())
     for pc_func in getattr(func, '_precomp_list', []):
-        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp = _precomp)
+        if pc_func in plist_set:
+            continue
+        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp=_precomp)
         #now call the function with the built mapping
         pc_func(freq, ifo, **pc_map)
+        plist_set.add(pc_func)
 
     #now run the prerequisite mappings. These return values which get mapped
     precomp_mapping = dict()
@@ -90,7 +94,7 @@ def _precomp_recurse_mapping(func, freq, ifo, _precomp):
             continue
         logger.debug("precomp {}".format(pc_func))
         #build the mapping for the requisite call
-        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp = _precomp)
+        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp=_precomp)
         #now call the function with the built mapping
         PC = pc_func(freq, ifo, **pc_map)
         precomp_mapping[name] = PC
@@ -137,7 +141,7 @@ class BudgetItem:
         if _precomp is None:
             _precomp = dict()
 
-        _PCmap = _precomp_recurse_mapping(self.calc, self.freq, self.ifo, _precomp = _precomp)
+        _PCmap = _precomp_recurse_mapping(self.calc, self.freq, self.ifo, _precomp=_precomp)
         #PCmap is not used for this "dry run" update. _precomp could be cached?
         _PCmap  # I just refer to _PCmap here to appease the linter
         return
@@ -542,7 +546,7 @@ class Budget(Noise):
             _precomp=_precomp,
         )
 
-    def calc_trace(self, calibration=1, calc=True, _precomp = None):
+    def calc_trace(self, calibration=1, calc=True, _precomp=None):
         """Calculate all budget noises and return BudgetTrace object
 
         `calibration` should either be a scalar or a len(self.freq)
