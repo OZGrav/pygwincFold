@@ -303,7 +303,7 @@ class Noise(BudgetItem):
                     kwargs['ifo'] = self.ifo
             self._ifo_hash = ifo_hash
         if kwargs:
-            self.update(_precomp = precomp, **kwargs)
+            self.update(_precomp = _precomp, **kwargs)
 
         return self.calc_trace(_precomp = _precomp)
 

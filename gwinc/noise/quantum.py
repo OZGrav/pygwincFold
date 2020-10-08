@@ -17,7 +17,7 @@ def sqzOptimalSqueezeAngle(Mifo, eta):
     return alpha
 
 
-def shotrad(f, ifo):
+def shotrad(f, ifo, PWR):
     """Quantum noise noise strain spectrum
 
     :f: frequency array in Hz
@@ -47,7 +47,7 @@ def shotrad(f, ifo):
     else:
         namespace = globals()
         fname = namespace['shotrad' + ifo.Optics.Type]
-    coeff, Mifo, Msig, Mn = fname(f, ifo)
+    coeff, Mifo, Msig, Mn = fname(f, ifo, PWR = PWR)
 
     # check for consistent dimensions
     Nfield = Msig.shape[0]
@@ -290,7 +290,7 @@ def compile_SEC_RES_TF():
     print('RES', '=', str(SEC_RES_expr[0]).replace('Matrix', 'np.array'))
 
 
-def shotradSignalRecycled(f, ifo):
+def shotradSignalRecycled(f, ifo, PWR):
     """Quantum noise model for signal recycled IFO (see shotrad for more info)
 
     New version July 2016 by JH based on transfer function formalism
@@ -333,7 +333,7 @@ def shotradSignalRecycled(f, ifo):
 
     R = 1 - T - ifo.Optics.Loss                  # ITM Reflectivity [Power]
 
-    P = ifo.gwinc.parm                           # use precomputed value
+    P = PWR.parm                           # use precomputed value
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -460,7 +460,7 @@ def shotradSignalRecycled(f, ifo):
     return coeff, Mifo, Msig, Mnoise
 
 
-def shotradSignalRecycledBnC(f, ifo):
+def shotradSignalRecycledBnC(f, ifo, PWR):
     """Quantum noise model for signal recycled IFO
 
     See shotrad for more info.
@@ -514,7 +514,7 @@ def shotradSignalRecycledBnC(f, ifo):
     gamma_ac = T*c/(4*L)                         # [KLMTV-PRD2001] Arm cavity half bandwidth [1/s]
     epsilon = lambda_arm/(2*gamma_ac*L/c)        # [BnC, after 5.2] Loss coefficent for arm cavity
 
-    I_0 = ifo.gwinc.pbs                          # [BnC, Table 1] Power at BS (Power*prfactor) [W]
+    I_0 = PWR.pbs                          # [BnC, Table 1] Power at BS (Power*prfactor) [W]
     I_SQL = (m*L**2*gamma_ac**4)/(4*omega_0)     # [BnC, 2.14] Power to reach free mass SQL
     Kappa = 2*((I_0/I_SQL)*gamma_ac**4)/ \
               (Omega**2*(gamma_ac**2+Omega**2))  # [BnC 2.13] Effective Radiation Pressure Coupling

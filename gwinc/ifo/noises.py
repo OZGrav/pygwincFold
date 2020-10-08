@@ -154,6 +154,16 @@ def precomp_power(f, ifo):
     ifo.gwinc.prfactor = prfactor
 
 
+def precomp_power2(f, ifo):
+    PC = Struct()
+    pbs, parm, finesse, prfactor, Tpr = ifo_power(ifo)
+    PC.pbs = pbs
+    PC.parm = parm
+    PC.finesse = finesse
+    PC.gPhase = finesse * 2/np.pi
+    PC.prfactor = prfactor
+    return PC
+
 def precomp_cavity(f, ifo):
     if 'gwinc' not in ifo:
         ifo.gwinc = Struct()
@@ -181,9 +191,9 @@ class QuantumVacuum(nb.Noise):
     )
 
     @nb.precomp(precomp_mirror)
-    @nb.precomp(precomp_power)
-    def calc(self):
-        return noise.quantum.shotrad(self.freq, self.ifo)
+    @nb.precomp(PWR = precomp_power2)
+    def calc(self, PWR):
+        return noise.quantum.shotrad(self.freq, self.ifo, PWR = PWR)
 
 
 class StandardQuantumLimit(nb.Noise):
