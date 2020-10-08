@@ -39,8 +39,8 @@ data.
 
 The [`inspiral_range`](https://git.ligo.org/gwinc/inspiral-range)
 package can be used to calculate various common "inspiral range"
-figures of merit for gravitational wave detector budgets.  See
-[figures of merit](#figures-of-merit) section below.
+figures of merit for gravitational wave detector budgets.  See the
+[inspiral range](#inspiral-range) section below.
 
 
 ## usage
@@ -48,12 +48,12 @@ figures of merit for gravitational wave detector budgets.  See
 ### command line interface
 
 `pygwinc` provides a command line interface that can be used to
-calculate and plot noise budgets for generic noise budgets or the
-various canonical IFOs described above, save/plot hdf5 trace data, and
-dump budget IFO parameters:
+calculate and plot the various canonical IFO noise budgets described
+above, as well as custom noise budgets (see below):
 ```shell
 $ python3 -m gwinc aLIGO
 ```
+Budget plots save/plot hdf5 trace data, and dump budget IFO parameters:
 
 You can play with IFO parameters and see the effects on the budget by
 dumping the pre-defined parameters to a [YAML-formatted parameter
@@ -84,18 +84,19 @@ $ python3 -m gwinc path/to/mybudget
 ```
 
 The command line interface also includes an "interactive" mode which
-provides an [IPython](https://ipython.org/) shell for interacting with a processed budget:
+provides an [IPython](https://ipython.org/) shell for interacting with
+a processed budget:
 ```shell
 $ python3 -m gwinc -i Aplus
 GWINC interactive shell
 
-The 'ifo' Struct and 'traces' data are available for inspection.
+The 'ifo' Struct and 'trace' data are available for inspection.
 Use the 'whos' command to view the workspace.
 
 You may interact with the plot using the 'plt' functions, e.g.:
 
-In [.]: plt.title("foo")
-In [.]: plt.savefig("foo.pdf")
+In [.]: plt.title("My Special Budget")
+In [.]: plt.savefig("mybudget.pdf")
 
 In [1]: 
 ```
@@ -116,30 +117,30 @@ accessed directly through the `gwinc` library interface:
 >>> freq = np.logspace(1, 3, 1000)
 >>> budget = gwinc.load_budget('aLIGO', freq)
 >>> trace = budget.run()
->>> fig = gwinc.plot_noise(freq, trace)
+>>> fig = gwinc.plot_budget(trace)
 >>> fig.show()
 ```
 
 The `load_budget()` function takes most of the same inputs as the
 command line interface (e.g. IFO names, budget module paths, YAML
-parameter files), and returns the `Budget` object defined in the
-specified budget module (see [budget interface](#budget-interface)
-below).  The budget `ifo` `gwinc.Struct` is assigned to the
-`budget.ifo` attribute.
+parameter files), and returns the instantiated `Budget` object defined
+in the specified budget module (see [budget
+interface](#budget-interface) below).  The budget `ifo` `gwinc.Struct`
+is available in the `budget.ifo` attribute.
 
-The budget `run()` method is a convenience method that calculates all
-budget noises and the noise total and returns a (possibly) nested
-dictionary of a noise data, in the form of a `(data, style)` tuple
-where 'data' is the PSD data and 'style' is a plot style dictionary
-for the trace.  The dictionary will be nested if the budget includes
-any sub-budgets.
+The budget `run()` method calculates all budget noises and the noise
+total and returns a `BudgetTrace` object with `freq`, `psd`, and `asd`
+properties.  The budget sub-traces are available through a dictionary
+(`trace['QuantumVacuum']`) interface and via attributes
+(`trace.QuantumVacumm`).
 
 
 ## noise functions
 
-`pygwinc` noise functions are available in the `gwinc.noise` package.
-This package includes multiple sub-modules for the different types of
-noises, e.g. `suspensionthermal`, `coatingthermal`, `quantum`, etc.)
+The `pygwinc` analytical noise functions are available in the
+`gwinc.noise` package.  This package includes multiple sub-modules for
+the different types of noises, e.g. `suspensionthermal`,
+`coatingthermal`, `quantum`, etc.)
 
 The various noise functions need many different parameters to
 calculate their noise outputs.  Many parameters are expected to be in
@@ -162,7 +163,7 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt):
 ```
 
 
-### `gwinc.Struct` objects
+## `gwinc.Struct` objects
 
 `pygwinc` provides a `Struct` class that can hold parameters in
 attributes and additionally acts like a dictionary, for passing to the
@@ -232,6 +233,11 @@ are:
 * `load()`: initial loading of static data
 * `update(**kwargs)`: update data/attributes
 * `calc()`: return final data array
+
+Generally these methods are not called directly.  Instead, the `Noise`
+and `Budget` classes include a `run` method that smartly executes then
+all in sequence.
+
 
 See the built-in documentation for more info (e.g. `pydoc3
 gwinc.nb.BudgetItem`)
@@ -314,10 +320,10 @@ The `style` attributes of the various `Noise` classes define plot
 style for the noise.
 
 This budget can be loaded with the `gwinc.load_budget()` function, and
-processed with the `Budget.run()` method:
+processed as usual with the `Budget.run()` method:
 ```python
 budget = load_budget('/path/to/MyBudget', freq)
-traces = budget.run()
+trace = budget.run()
 ```
 
 Other than the necessary `freq` initialization argument that defines
@@ -339,8 +345,7 @@ Alternate ifos can be specified at run time:
 ```python
 budget = load_budget('/path/to/MyBudget', freq)
 ifo = Struct.from_file('/path/to/MyBudget.ifo')
-traces = budget.run(ifo=ifo)
-...
+trace = budget.run(ifo=ifo)
 ```
 
 The IFOs included in `gwinc.ifo` provide examples of the use of the
@@ -354,10 +359,9 @@ interface.  The most straightforward way is to run the full budget,
 and extract the noise data the output traces dictionary:
 
 ```python
-Budget = load_budget('/path/to/MyBudget')
-budget = Budget(freq)
-traces = budget.calc_traces()
-data, plot_style = traces['QuantumVacuum']
+budget = load_budget('/path/to/MyBudget', freq)
+trace = budget.run()
+quantum_trace = trace['QuantumVacuum']
 ```
 
 You can also calculate the final calibrated output noise for just a
@@ -375,7 +379,7 @@ data = budget['QuantumVacuum'].calc()
 ```
 
 
-# figures of merit
+# inspiral range
 
 The [`inspiral_range`](https://git.ligo.org/gwinc/inspiral-range)
 package can be used to calculate various common "inspiral range"
@@ -388,17 +392,14 @@ import inspiral_range
 import numpy as np
 
 freq = np.logspace(1, 3, 1000)
-Budget = gwinc.load_budget('Aplus')
-traces = Budget(freq).run()
+budget = gwinc.load_budget('Aplus', freq)
+trace = budget.run()
 
 range = inspiral_range.range(
-    freq, traces['Total'][0],
+    freq, trace.psd,
     m1=30, m2=30,
 )
 ```
-
-Note you need to extract the zeroth element of the `traces['Total']`
-tuple, which is the actual PSD data.
 
 See the [`inspiral_range`](https://git.ligo.org/gwinc/inspiral-range)
 package for more details.

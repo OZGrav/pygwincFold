@@ -5,7 +5,7 @@ import logging
 import argparse
 import numpy as np
 
-from . import IFOS, load_budget, plot_noise, logger
+from . import IFOS, load_budget, plot_budget, logger
 
 logger.setLevel(os.getenv('LOG_LEVEL', 'WARNING').upper())
 formatter = logging.Formatter('%(message)s')
@@ -123,11 +123,10 @@ def main():
             parser.exit(2, "IFO parameter specification not allowed when loading traces from file.\n")
         from .io import load_hdf5
         budget = None
-        freq, traces, attrs = load_hdf5(args.IFO)
-        ifo = attrs.get('ifo')
-        # FIXME: deprecate 'IFO'
-        ifo = attrs.get('IFO', ifo)
-        plot_style = attrs
+        trace = load_hdf5(args.IFO)
+        freq = trace.freq
+        ifo = trace.ifo
+        plot_style = trace.plot_style
 
     else:
         budget = load_budget(args.IFO)
@@ -140,7 +139,7 @@ def main():
         else:
             freq = getattr(budget, 'freq', freq_from_spec(FREQ))
         plot_style = getattr(budget, 'plot_style', {})
-        traces = None
+        trace = None
 
     if args.ifo:
         for paramval in args.ifo:
@@ -233,9 +232,9 @@ def main():
     ##########
     # main calculations
 
-    if not traces:
+    if not trace:
         logger.info("calculating budget...")
-        traces = budget.run(freq=freq)
+        trace = budget.run(freq=freq)
 
     if args.title:
         plot_style['title'] = args.title
@@ -250,15 +249,16 @@ def main():
         logger.info("calculating inspiral {}...".format(range_func))
         H = inspiral_range.CBCWaveform(freq, **range_params)
         logger.debug("waveform params: {}".format(H.params))
-        fom = eval('inspiral_range.{}'.format(range_func))(freq, traces['Total'][0], H=H)
+        fom = eval('inspiral_range.{}'.format(range_func))(freq, trace.psd, H=H)
         logger.info("{}({}) = {:.2f} Mpc".format(range_func, range_func_args, fom))
-        fom_title = 'inspiral {func} {m1}/{m2} $\mathrm{{M}}_\odot$: {fom:.0f} Mpc'.format(
+        subtitle = 'inspiral {func} {m1}/{m2} $\mathrm{{M}}_\odot$: {fom:.0f} Mpc'.format(
             func=range_func,
             m1=H.params['m1'],
             m2=H.params['m2'],
             fom=fom,
             )
-        plot_style['title'] += '\n{}'.format(fom_title)
+    else:
+        subtitle = None
 
     ##########
     # interactive
@@ -267,14 +267,14 @@ def main():
     if args.interactive:
         banner = """GWINC interactive shell
 
-The 'ifo' Struct and 'traces' data objects are available for
+The 'ifo' Struct and 'budget' trace data objects are available for
 inspection.  Use the 'whos' command to view the workspace.
 """
         if not args.plot:
             banner += """
-You may plot the budget using the 'plot_noise()' function:
+You may plot the budget using the 'plot_budget()' function:
 
-In [.]: plot_noise(freq, traces, **plot_style)
+In [.]: plot_budget(budget, **plot_style)
 """
         banner += """
 You may interact with the plot using the 'plt' functions, e.g.:
@@ -286,34 +286,31 @@ In [.]: plt.savefig("foo.pdf")
         ipshell = InteractiveShellEmbed(
             banner1=banner,
             user_ns={
-                'freq': freq,
-                'traces': traces,
+                'budget': trace,
                 'ifo': ifo,
                 'plot_style': plot_style,
-                'plot_noise': plot_noise,
+                'plot_budget': plot_budget,
             },
         )
         ipshell.enable_pylab()
         if args.plot:
-            ipshell.ex("fig = plot_noise(freq, traces, **plot_style)")
+            ipshell.ex("fig = plot_budget(budget, **plot_style)")
             ipshell.ex("plt.title(plot_style['title'])")
         ipshell()
 
     ##########
     # output
 
-    # save noise traces to HDF5 file
+    # save noise trace to HDF5 file
     if out_data_files:
         from .io import save_hdf5
-        attrs = dict(plot_style)
         for path in out_data_files:
-            logger.info("saving budget traces: {}".format(path))
+            logger.info("saving budget trace: {}".format(path))
             save_hdf5(
                 path=path,
-                freq=freq,
-                traces=traces,
+                trace=trace,
                 ifo=ifo,
-                **attrs,
+                plot_style=plot_style,
             )
 
     # standard plotting
@@ -321,10 +318,10 @@ In [.]: plt.savefig("foo.pdf")
         logger.debug("plotting noises...")
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
-        plot_noise(
-            freq,
-            traces,
+        plot_budget(
+            trace,
             ax=ax,
+            subtitle=subtitle,
             **plot_style
         )
         fig.tight_layout()

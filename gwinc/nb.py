@@ -1,11 +1,10 @@
-import operator
 import itertools
 import collections
 import numpy as np
 import scipy.interpolate
-from functools import reduce
 
 from . import logger
+from .trace import BudgetTrace
 
 
 def quadsum(data):
@@ -18,7 +17,6 @@ def quadsum(data):
 
     """
     return np.nansum(data, 0)
-
 
 
 class BudgetItem:
@@ -36,6 +34,11 @@ class BudgetItem:
 
         By default any keyword arguments provided are written directly
         as attribute variables (as with __init__).
+
+        When overloading this method it is recommended to execute the
+        method from the base class with e.g.:
+
+          super().update(**kwargs)
 
         """
         for key, val in kwargs.items():
@@ -132,27 +135,31 @@ class Noise(BudgetItem):
     style = {}
     """Trace plot style dictionary"""
 
-    def calc_trace(self, calibrations=None, calc=True):
-        """Returns noise (PSD, style) tuple.
+    def _make_trace(self, psd=None, budget=None):
+        return BudgetTrace(
+            name=self.name,
+            style=self.style,
+            freq=self.freq,
+            psd=psd,
+            budget=budget,
+        )
 
-        If `calibrations` is not None it is assumed to be a list of
-        len(self.freq) arrays that will be multiplied to the output
-        PSD.
+    def calc_trace(self, calibration=1, calc=True):
+        """Calculate noise and return BudgetTrace object
 
-        If calc=False, the noise will not be calculated and the PSD
-        will be None.  This is useful for just getting the style.
+        `calibration` should either be a scalar or a len(self.freq)
+        array that will be multiplied to the output PSD of the budget
+        and all sub noises.
+
+        If `calc` is False, the noise will not be calculated and the
+        trace PSD will be None.  This is useful for just getting the
+        trace style info.
 
         """
+        total = None
         if calc:
-            data = self.calc()
-            if calibrations:
-                data *= reduce(
-                    operator.mul,
-                    calibrations,
-                )
-        else:
-            data = None
-        return data, self.style
+            total = self.calc() * calibration
+        return self._make_trace(psd=total)
 
     def run(self, **kwargs):
         """Convenience method to load, update, and return calc traces.
@@ -361,95 +368,67 @@ class Budget(Noise):
 
     def update(self, **kwargs):
         """Update all noise and cal objects with supplied kwargs."""
+        super().update(**kwargs)
         for name, item in itertools.chain(
                 self._cal_objs.items(),
                 self._noise_objs.items()):
             logger.debug("update {}".format(item))
             item.update(**kwargs)
 
-    def calc_noise(self, name):
-        """Return calibrated individual noise term.
+    update.__doc__ = Noise.update.__doc__
 
-        The noise PSD and calibration transfer functions are
-        calculated, and the calibrated noise array is returned.
+    def calc_noise(self, name, calibration=1, calc=True, _cals=None):
+        """Return calibrated individual noise BudgetTrace.
 
-        """
-        noise = self._noise_objs[name]
-        cals = [self._cal_objs[cal].calc() for cal in self._noise_cals[name]]
-        data = noise.calc_trace(cals)
-        if isinstance(data, dict):
-            return data['Total'][0]
-        else:
-            return data[0]
-
-    def calc(self):
-        """Calculate sum of all noises.
+        The noise and calibration transfer functions are calculated,
+        and the calibrated noise BudgetTrace is returned.
+        `calibration` is an overall calculated calibration to apply to
+        the noise.
 
         """
-        data = [self.calc_noise(name) for name in self._noise_objs.keys() if name in self._budget_noises]
-        return quadsum(data)
-
-    def calc_trace(self, calibrations=None, calc=True):
-        """Returns a dictionary of noises traces, keyed by noise names.
-
-        Values are (data, style) trace tuples (see Noise.calc_trace).
-        The key of the budget sum total is 'Total'.  The values of sub
-        budgets are themselves dictionaries returned from
-        calc_trace() of the sub budget.
-
-        If `calibrations` is not None it is assumed to be a list of
-        len(self.freq) array that will be multiplied to the output PSD
-        of the budget and all sub noises.
-
-        If calc=False, the noise will not be calculated and the PSD
-        will be None.  This is useful for just getting style the
-        style.
-
-        """
-        # start by creating an empty OrderedDict used for outputing trace data
-        # or style info with the following order:
-        #   references
-        #   total
-        #   constituents
-        d = collections.OrderedDict()
-        # allocate references
-        for name, noise in self._noise_objs.items():
-            if name in self._budget_noises:
-                continue
-            d[name] = noise.calc_trace(calc=False)
-        # allocate total
-        if self._budget_noises:
-            d['Total'] = None, self.style
-        # allocate constituent
-        for name, noise in self._noise_objs.items():
-            if name not in self._budget_noises:
-                continue
-            d[name] = noise.calc_trace(calc=False)
-        # if we're not calc'ing, just return the dict now
-        if not calc:
-            return d
-
-        # calc all calibrations
-        c = {}
-        for name, cal in self._cal_objs.items():
-            logger.debug("calc {}".format(name))
-            c[name] = cal.calc()
-        # calc all noises
-        for name, noise in self._noise_objs.items():
-            cals = [c[cal] for cal in self._noise_cals[name]]
-            if calibrations:
-                cals += calibrations
-            logger.debug("calc {}".format(name))
-            d[name] = noise.calc_trace(
-                calibrations=cals,
-            )
-        # calc budget total
-        constituent_data = []
-        for name in self._budget_noises:
-            if isinstance(d[name], dict):
-                data = d[name]['Total'][0]
+        for cal in self._noise_cals[name]:
+            if _cals:
+                calibration *= _cals[cal]
             else:
-                data = d[name][0]
-            constituent_data.append(data)
-        d['Total'] = quadsum(constituent_data), self.style
-        return d
+                obj = self._cal_objs[cal]
+                logger.debug("calc {}".format(obj))
+                calibration *= obj.calc()
+        noise = self._noise_objs[name]
+        logger.debug("calc {}".format(noise))
+        return noise.calc_trace(
+            calibration=calibration,
+            calc=calc,
+        )
+
+    def calc_trace(self, calibration=1, calc=True):
+        """Calculate all budget noises and return BudgetTrace object
+
+        `calibration` should either be a scalar or a len(self.freq)
+        array that will be multiplied to the output PSD of the budget
+        and all sub noises.
+
+        If `calc` is False, the noise will not be calculated and the
+        trace PSD will be None.  This is useful for just getting the
+        trace style info.
+
+        """
+        _cals = {}
+        if calc:
+            for name, cal in self._cal_objs.items():
+                logger.debug("calc {}".format(cal))
+                _cals[name] = cal.calc()
+
+        budget = []
+        for name in self._noise_objs:
+            trace = self.calc_noise(
+                name,
+                calibration=calibration,
+                calc=calc,
+                _cals=_cals,
+            )
+            budget.append(trace)
+
+        total = quadsum([trace.psd for trace in budget])
+        return self._make_trace(
+            psd=total, budget=budget
+        )

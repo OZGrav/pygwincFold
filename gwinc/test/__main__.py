@@ -6,10 +6,8 @@ import logging
 import tempfile
 import argparse
 import subprocess
-import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
-from collections.abc import Mapping
 from PyPDF2 import PdfFileReader, PdfFileWriter
 
 from .. import IFOS, load_budget
@@ -120,81 +118,45 @@ def load_cache(path):
     return cache
 
 
-def walk_traces(traces, root=()):
-    """recursively walk through traces
-
-    yields (key_tuple, value), where key_tuple is a tuple of nested
-    dict keys of the traces dict locating the given value.
-
-    """
-    for key, val in traces.items():
-        r = root+(key,)
-        if isinstance(val, Mapping):
-            for k, v in walk_traces(val, root=r):
-                yield k, v
-            continue
-        else:
-            yield r, val
-
-
-def zip_noises(tracesA, tracesB, skip):
+def zip_noises(traceA, traceB, skip):
     """zip matching noises from traces"""
-    for keys, (noiseA, _) in walk_traces(tracesA):
-        # keys is a tuple of nested keys for noise
-        name = keys[-1]
-        # skip keys we'll add at the end
-        if name in ['Total', 'int73']:
-            continue
+    B_dict = dict(traceB.walk())
+    for name, tA in traceA.walk():
         if skip and name in skip:
             logging.warning("SKIPPING TEST: '{}'".format(name))
             continue
-
         try:
-            t = tracesB
-            for key in keys:
-                t = t[key]
-            noiseB, style = t
+            tB = B_dict[name]
         except (KeyError, TypeError):
             logging.warning("MISSING B TRACE: '{}'".format(name))
             continue
-
-        yield name, noiseA, noiseB
-
-    yield 'Total', tracesA['Total'][0], tracesB['Total'][0]
-
-    if 'int73' in tracesA:
-        yield 'int73', tracesA['int73'][0], tracesB['int73'][0]
+        yield name, tA, tB
 
 
-def compare_traces(tracesA, tracesB, tolerance=TOLERANCE, skip=None):
-    """Compare two gwinc trace dictionaries
+def compare_traces(traceA, traceB, tolerance=TOLERANCE, skip=None):
+    """Compare two gwinc traces
 
     Noises listed in `skip` will not be compared.
 
     Returns a dictionary of noises that differ fractionally (on a
-    point-by-point basis) by more that `tolerance` between `tracesA`
-    and `tracesB`.
+    point-by-point basis) by more than `tolerance` between the traces
+    in `traceA` and `traceB`.
 
     """
     #name_width = max([len(n[0][-1]) for n in walk_traces(tracesA)])
     name_width = 15
     diffs = OrderedDict()
-    for name, noiseA, noiseB in zip_noises(tracesA, tracesB, skip):
+    for name, tA, tB in zip_noises(traceA, traceB, skip):
         logging.debug("comparing {}...".format(name))
-
-        ampA = np.sqrt(noiseA)
-        ampB = np.sqrt(noiseB)
+        ampA = tA.asd
+        ampB = tB.asd
         diff = ampB - ampA
         frac = abs(diff / ampA)
-
         if max(frac) < tolerance:
             continue
-
         logging.warning("EXCESSIVE DIFFERENCE: {:{w}} {:6.1f} ppm".format(
             name, max(frac)*1e6, w=name_width))
-
-        diffs[name] = (noiseA, noiseB, frac)
-
+        diffs[name] = (ampA, ampB, frac)
     return diffs
 
 
@@ -202,11 +164,11 @@ def plot_diffs(freq, diffs, styleA, styleB):
     spec = (len(diffs)+1, 2)
     sharex = None
     for i, nname in enumerate(diffs):
-        noiseA, noiseB, frac = diffs[nname]
+        ampA, ampB, frac = diffs[nname]
 
         axl = plt.subplot2grid(spec, (i, 0), sharex=None)
-        axl.loglog(freq, np.sqrt(noiseA), **styleA)
-        axl.loglog(freq, np.sqrt(noiseB), **styleB)
+        axl.loglog(freq, ampA, **styleA)
+        axl.loglog(freq, ampB, **styleB)
         axl.grid()
         axl.legend(loc='upper right')
         axl.set_ylabel(nname)
@@ -334,14 +296,17 @@ gwinc/test/cache/<SHA1>.  Old caches are automatically pruned.""",
             fail |= True
             continue
 
-        freq, traces_ref, attrs = load_hdf5(path)
-
+        traces_ref = load_hdf5(path)
+        traces_ref.name = 'Total'
+        freq = traces_ref.freq
         budget = load_budget(name, freq)
         traces_cur = budget.run()
+        traces_cur.name = 'Total'
 
-        if inspiral_range:
-            total_ref = traces_ref['Total'][0]
-            total_cur = traces_cur['Total'][0]
+        # FIXME: add this back
+        if False: #inspiral_range:
+            total_ref = traces_ref.psd
+            total_cur = traces_cur.psd
             range_func = inspiral_range.range
             H = inspiral_range.waveform.CBCWaveform(freq)
             fom_ref = range_func(freq, total_ref, H=H)
