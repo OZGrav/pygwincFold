@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from numpy import pi, sin, exp, sqrt
 
@@ -10,14 +11,33 @@ from .. import suspension
 
 ##################################################
 
-def coating_thickness(ifo, optic):
-    optic = ifo.Optics.get(optic)
+
+def coating_thickness(materials, optic):
     if 'CoatLayerOpticalThickness' in optic:
         return optic['CoatLayerOpticalThickness']
     T = optic.Transmittance
     dL = optic.CoatingThicknessLown
     dCap = optic.CoatingThicknessCap
-    return noise.coatingthermal.getCoatDopt(ifo.Materials, T, dL, dCap=dCap)
+    return noise.coatingthermal.getCoatDopt(materials, T, dL, dCap=dCap)
+
+
+def mirror_struct(ifo, tm):
+    """Create a "mirror" Struct for a LIGO core optic
+
+    This is a copy of the ifo.Materials Struct, containing Substrate
+    and Coating sub-Structs, as well as some basic geometrical
+    properties of the optic.
+
+    """
+    # NOTE: we deepcopy this struct since we'll be modifying it (and
+    # it would otherwise be stored by reference)
+    mirror = copy.deepcopy(ifo.Materials)
+    optic = ifo.Optics.get(tm)
+    mirror.Coating.dOpt = coating_thickness(ifo.Materials, optic)
+    mirror.update(optic)
+    mirror.MassVolume = pi * mirror.MassRadius**2 * mirror.MassThickness
+    mirror.MirrorMass = mirror.MassVolume * mirror.Substrate.MassDensity
+    return mirror
 
 
 def arm_cavity(ifo):
@@ -118,15 +138,6 @@ def dhdl(f, armlen):
 ##################################################
 
 
-def precomp_mirror(f, ifo):
-    ifo.Materials.MirrorVolume = \
-        pi * ifo.Materials.MassRadius**2 \
-        * ifo.Materials.MassThickness
-    ifo.Materials.MirrorMass = \
-        ifo.Materials.MirrorVolume \
-        * ifo.Materials.Substrate.MassDensity
-
-
 def precomp_suspension(f, ifo):
     pc = Struct()
     pc.VHCoupling = Struct()
@@ -142,10 +153,10 @@ def precomp_suspension(f, ifo):
     return pc
 
 
-def precomp_coating(f, ifo):
+def precomp_mirror(f, ifo):
     pc = Struct()
-    pc.dOpt_ITM = coating_thickness(ifo, 'ITM')
-    pc.dOpt_ETM = coating_thickness(ifo, 'ETM')
+    pc.ITM = mirror_struct(ifo, 'ITM')
+    pc.ETM = mirror_struct(ifo, 'ETM')
     return pc
 
 
@@ -186,10 +197,10 @@ class QuantumVacuum(nb.Noise):
         color='#ad03de',
     )
 
-    @nb.precomp(precomp_mirror)
+    @nb.precomp(mirror=precomp_mirror)
     @nb.precomp(power=precomp_power)
-    def calc(self, power):
-        return noise.quantum.shotrad(self.freq, self.ifo, power=power)
+    def calc(self, mirror, power):
+        return noise.quantum.shotrad(self.freq, self.ifo, mirror.ETM.MirrorMass, power)
 
 
 class StandardQuantumLimit(nb.Noise):
@@ -202,9 +213,9 @@ class StandardQuantumLimit(nb.Noise):
         linestyle=":",
     )
 
-    @nb.precomp(precomp_mirror)
-    def calc(self):
-        return 8 * const.hbar / (self.ifo.Materials.MirrorMass * (2 * np.pi * self.freq) ** 2)
+    @nb.precomp(mirror=precomp_mirror)
+    def calc(self, mirror):
+        return 8 * const.hbar / (mirror.ETM.MirrorMass * (2 * np.pi * self.freq) ** 2)
 
 
 class Seismic(nb.Noise):
@@ -314,20 +325,16 @@ class CoatingBrownian(nb.Noise):
         color='#fe0002',
     )
 
-    @nb.precomp(precomp_mirror)
-    @nb.precomp(power=precomp_power)
+    @nb.precomp(mirror=precomp_mirror)
     @nb.precomp(cavity=precomp_cavity)
-    @nb.precomp(coat=precomp_coating)
-    def calc(self, power, cavity, coat):
+    @nb.precomp(power=precomp_power)
+    def calc(self, mirror, cavity, power):
         wavelength = self.ifo.Laser.Wavelength
-        materials = self.ifo.Materials
         nITM = noise.coatingthermal.coating_brownian(
-            self.freq, materials, wavelength,
-            cavity.wBeam_ITM, coat.dOpt_ITM, power.parm,
+            self.freq, mirror.ITM, wavelength, cavity.wBeam_ITM, power.parm,
         )
         nETM = noise.coatingthermal.coating_brownian(
-            self.freq, materials, wavelength,
-            cavity.wBeam_ETM, coat.dOpt_ETM, power.parm,
+            self.freq, mirror.ETM, wavelength, cavity.wBeam_ETM, power.parm,
         )
         return (nITM + nETM) * 2
 
@@ -342,18 +349,16 @@ class CoatingThermoOptic(nb.Noise):
         linestyle='--',
     )
 
+    @nb.precomp(mirror=precomp_mirror)
     @nb.precomp(cavity=precomp_cavity)
-    @nb.precomp(coat=precomp_coating)
-    def calc(self, cavity, coat):
+    def calc(self, mirror, cavity):
         wavelength = self.ifo.Laser.Wavelength
         materials = self.ifo.Materials
         nITM, junk1, junk2, junk3 = noise.coatingthermal.coating_thermooptic(
-            self.freq, materials, wavelength,
-            cavity.wBeam_ITM, coat.dOpt_ITM,
+            self.freq, mirror.ITM, wavelength, cavity.wBeam_ITM,
         )
         nETM, junk1, junk2, junk3 = noise.coatingthermal.coating_thermooptic(
-            self.freq, materials, wavelength,
-            cavity.wBeam_ETM, coat.dOpt_ETM,
+            self.freq, mirror.ETM, wavelength, cavity.wBeam_ETM,
         )
         return (nITM + nETM) * 2
 
