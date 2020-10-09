@@ -145,6 +145,7 @@ class BudgetItem:
         for key, val in kwargs.items():
             setattr(self, key, val)
         self._loaded = False
+        self._precomp = dict()
 
     @property
     def name(self):
@@ -272,11 +273,12 @@ class Noise(BudgetItem):
                     kwargs['ifo'] = self.ifo
             self._ifo_hash = ifo_hash
 
-        _precomp = dict()
         if kwargs:
             self.update(**kwargs)
+            # clear precomp cache
+            self._precomp = dict()
 
-        return self.calc_trace(_precomp=_precomp)
+        return self.calc_trace(_precomp=self._precomp)
 
 
 class Budget(Noise):
