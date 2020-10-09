@@ -24,13 +24,15 @@ def coating_brownian(f, mirror, wavelength, wBeam, power):
 
     The layers are assumed to be alernating low-n high-n layers, with
     low-n first.
+
     Inputs:
              f = frequency vector in Hz
         mirror = mirror properties Struct
     wavelength = laser wavelength
          wBeam = beam radius (at 1 / e**2 power)
-         power = Circulating Laser Power falling on the Mirror (W).
-    If the material.Coating.IncCoatBrAmpNoise parameter is present and
+         power = laser power falling on the mirror (W)
+
+    If the mirror.Coating.IncCoatBrAmpNoise parameter is present and
     evaluates to True the amplitude noise due to coating brownian
     noise will be calculated and its effect on the phase noise will be
     added.  In that case the following new optional arguments should
@@ -48,7 +50,7 @@ def coating_brownian(f, mirror, wavelength, wBeam, power):
       PEThighn = Relevant component of Photoelastic Tensor of Low n layer*
 
     Returns:
-    SbrZ = Brownian noise spectra for one mirror in m**2 / Hz
+      SbrZ = Brownian noise spectra for one mirror in m**2 / Hz
 
     *
     Choice of PETlown and PEThighn can be inspired from sec. A.1. of the paper.
