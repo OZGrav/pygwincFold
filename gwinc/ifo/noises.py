@@ -127,24 +127,46 @@ def precomp_mirror(f, ifo):
         * ifo.Materials.Substrate.MassDensity
 
 
-def precomp_gwinc(f, ifo):
-    ifo.gwinc = Struct()
-    pbs, parm, finesse, prfactor, Tpr = ifo_power(ifo)
-    ifo.gwinc.pbs = pbs
-    ifo.gwinc.parm = parm
-    ifo.gwinc.finesse = finesse
-    ifo.gwinc.prfactor = prfactor
-
-
 def precomp_suspension(f, ifo):
-    if 'VHCoupling' not in ifo.Suspension:
-        ifo.Suspension.VHCoupling = Struct()
-        ifo.Suspension.VHCoupling.theta = ifo.Infrastructure.Length / const.R_earth
+    pc = Struct()
+    pc.VHCoupling = Struct()
+    if 'VHCoupling' in ifo.Suspension:
+        pc.VHCoupling.theta = ifo.Suspension.VHCoupling.theta
+    else:
+        pc.VHCoupling.theta = ifo.Infrastructure.Length / const.R_earth
     hForce, vForce, hTable, vTable = suspension.suspQuad(f, ifo.Suspension)
-    ifo.Suspension.hForce = hForce
-    ifo.Suspension.vForce = vForce
-    ifo.Suspension.hTable = hTable
-    ifo.Suspension.vTable = vTable
+    pc.hForce = hForce
+    pc.vForce = vForce
+    pc.hTable = hTable
+    pc.vTable = vTable
+    return pc
+
+
+def precomp_coating(f, ifo):
+    pc = Struct()
+    pc.dOpt_ITM = coating_thickness(ifo, 'ITM')
+    pc.dOpt_ETM = coating_thickness(ifo, 'ETM')
+    return pc
+
+
+def precomp_power(f, ifo):
+    pc = Struct()
+    pbs, parm, finesse, prfactor, Tpr = ifo_power(ifo)
+    pc.pbs = pbs
+    pc.parm = parm
+    pc.finesse = finesse
+    pc.gPhase = finesse * 2/np.pi
+    pc.prfactor = prfactor
+    return pc
+
+
+def precomp_cavity(f, ifo):
+    pc = Struct()
+    w0, wBeam_ITM, wBeam_ETM = arm_cavity(ifo)
+    pc.w0 = w0
+    pc.wBeam_ITM = wBeam_ITM
+    pc.wBeam_ETM = wBeam_ETM
+    return pc
 
 ##################################################
 
@@ -164,10 +186,10 @@ class QuantumVacuum(nb.Noise):
         color='#ad03de',
     )
 
-    def calc(self):
-        precomp_mirror(self.freq, self.ifo)
-        precomp_gwinc(self.freq, self.ifo)
-        return noise.quantum.shotrad(self.freq, self.ifo)
+    @nb.precomp(precomp_mirror)
+    @nb.precomp(power=precomp_power)
+    def calc(self, power):
+        return noise.quantum.shotrad(self.freq, self.ifo, power=power)
 
 
 class StandardQuantumLimit(nb.Noise):
@@ -180,6 +202,7 @@ class StandardQuantumLimit(nb.Noise):
         linestyle=":",
     )
 
+    @nb.precomp(precomp_mirror)
     def calc(self):
         return 8 * const.hbar / (self.ifo.Materials.MirrorMass * (2 * np.pi * self.freq) ** 2)
 
@@ -193,8 +216,8 @@ class Seismic(nb.Noise):
         color='#855700',
     )
 
-    def calc(self):
-        precomp_suspension(self.freq, self.ifo)
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
         if 'PlatformMotion' in self.ifo.Seismic:
             if self.ifo.Seismic.PlatformMotion == 'BSC':
                 nt, nr = noise.seismic.seismic_BSC_ISI(self.freq)
@@ -205,7 +228,7 @@ class Seismic(nb.Noise):
         else:
             nt, nr = noise.seismic.seismic_BSC_ISI(self.freq)
         n, nh, nv = noise.seismic.seismic_suspension_fitered(
-            self.ifo.Suspension, nt)
+            self.ifo.Suspension, sustf, nt)
         return n * 4
 
 
@@ -275,9 +298,10 @@ class SuspensionThermal(nb.Noise):
         color='#0d75f8',
     )
 
-    def calc(self):
-        precomp_suspension(self.freq, self.ifo)
-        n = noise.suspensionthermal.suspension_thermal(self.freq, self.ifo.Suspension)
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.suspension_thermal(
+            self.freq, self.ifo.Suspension, sustf)
         return n * 4
 
 
@@ -290,27 +314,21 @@ class CoatingBrownian(nb.Noise):
         color='#fe0002',
     )
 
-    def calc(self):
+    @nb.precomp(precomp_mirror)
+    @nb.precomp(power=precomp_power)
+    @nb.precomp(cavity=precomp_cavity)
+    @nb.precomp(coat=precomp_coating)
+    def calc(self, power, cavity, coat):
         wavelength = self.ifo.Laser.Wavelength
         materials = self.ifo.Materials
-        w0, wBeam_ITM, wBeam_ETM = arm_cavity(self.ifo)
-        dOpt_ITM = coating_thickness(self.ifo, 'ITM')
-        dOpt_ETM = coating_thickness(self.ifo, 'ETM')
-        mTi_ITM = None
-        mTi_ETM = None
-        Ic = None
-        if 'IncCoatBrAmpNoise' in materials.Coating:
-            if materials.Coating.IncCoatBrAmpNoise.lower() == 'yes':
-                mTi_ITM = self.ifo.Optics.ITM.Transmittance
-                mTi_ETM = self.ifo.Optics.ETM.Transmittance
-                Ic = ifo_power(self.ifo)[1]   # Circulating Arm Power
-                precomp_mirror(self.freq, self.ifo)
         nITM = noise.coatingthermal.coating_brownian(
-            self.freq, materials, wavelength, wBeam_ITM,
-            dOpt_ITM, Ic, mTi_ITM)
+            self.freq, materials, wavelength,
+            cavity.wBeam_ITM, coat.dOpt_ITM, power.parm,
+        )
         nETM = noise.coatingthermal.coating_brownian(
-            self.freq, materials, wavelength, wBeam_ETM,
-            dOpt_ETM, Ic, mTi_ETM)
+            self.freq, materials, wavelength,
+            cavity.wBeam_ETM, coat.dOpt_ETM, power.parm,
+        )
         return (nITM + nETM) * 2
 
 
@@ -324,16 +342,19 @@ class CoatingThermoOptic(nb.Noise):
         linestyle='--',
     )
 
-    def calc(self):
+    @nb.precomp(cavity=precomp_cavity)
+    @nb.precomp(coat=precomp_coating)
+    def calc(self, cavity, coat):
         wavelength = self.ifo.Laser.Wavelength
         materials = self.ifo.Materials
-        w0, wBeam_ITM, wBeam_ETM = arm_cavity(self.ifo)
-        dOpt_ITM = coating_thickness(self.ifo, 'ITM')
-        dOpt_ETM = coating_thickness(self.ifo, 'ETM')
         nITM, junk1, junk2, junk3 = noise.coatingthermal.coating_thermooptic(
-            self.freq, materials, wavelength, wBeam_ITM, dOpt_ITM[:])
+            self.freq, materials, wavelength,
+            cavity.wBeam_ITM, coat.dOpt_ITM,
+        )
         nETM, junk1, junk2, junk3 = noise.coatingthermal.coating_thermooptic(
-            self.freq, materials, wavelength, wBeam_ETM, dOpt_ETM[:])
+            self.freq, materials, wavelength,
+            cavity.wBeam_ETM, coat.dOpt_ETM,
+        )
         return (nITM + nETM) * 2
 
 
@@ -347,13 +368,12 @@ class ITMThermoRefractive(nb.Noise):
         linestyle='--',
     )
 
-    def calc(self):
-        finesse = ifo_power(self.ifo)[2]
-        gPhase = finesse * 2/np.pi
-        w0, wBeam_ITM, wBeam_ETM = arm_cavity(self.ifo)
+    @nb.precomp(cavity=precomp_cavity)
+    @nb.precomp(power=precomp_power)
+    def calc(self, cavity, power):
         n = noise.substratethermal.substrate_thermorefractive(
-            self.freq, self.ifo.Materials, wBeam_ITM)
-        return n * 2 / gPhase**2
+            self.freq, self.ifo.Materials, cavity.wBeam_ITM)
+        return n * 2 / power.gPhase**2
 
 
 class SubstrateBrownian(nb.Noise):
@@ -366,12 +386,12 @@ class SubstrateBrownian(nb.Noise):
         linestyle='--',
     )
 
-    def calc(self):
-        w0, wBeam_ITM, wBeam_ETM = arm_cavity(self.ifo)
+    @nb.precomp(cavity=precomp_cavity)
+    def calc(self, cavity):
         nITM = noise.substratethermal.substrate_brownian(
-            self.freq, self.ifo.Materials, wBeam_ITM)
+            self.freq, self.ifo.Materials, cavity.wBeam_ITM)
         nETM = noise.substratethermal.substrate_brownian(
-            self.freq, self.ifo.Materials, wBeam_ETM)
+            self.freq, self.ifo.Materials, cavity.wBeam_ETM)
         return (nITM + nETM) * 2
 
 
@@ -385,12 +405,12 @@ class SubstrateThermoElastic(nb.Noise):
         linestyle='--',
     )
 
-    def calc(self):
-        w0, wBeam_ITM, wBeam_ETM = arm_cavity(self.ifo)
+    @nb.precomp(cavity=precomp_cavity)
+    def calc(self, cavity):
         nITM = noise.substratethermal.substrate_thermoelastic(
-            self.freq, self.ifo.Materials, wBeam_ITM)
+            self.freq, self.ifo.Materials, cavity.wBeam_ITM)
         nETM = noise.substratethermal.substrate_thermoelastic(
-            self.freq, self.ifo.Materials, wBeam_ETM)
+            self.freq, self.ifo.Materials, cavity.wBeam_ETM)
         return (nITM + nETM) * 2
 
 

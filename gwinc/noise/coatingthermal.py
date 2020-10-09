@@ -10,8 +10,7 @@ from ..const import BESSEL_ZEROS as zeta
 from ..const import J0M as j0m
 
 
-def coating_brownian(f, materials, wavelength, wBeam, dOpt,
-                     Ic=None, mTi=None):
+def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
     """Coating brownian noise for a given collection of coating layers
 
     This function calculates Coating Brownian noise using
@@ -31,18 +30,14 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt,
     wavelength = laser wavelength
          wBeam = beam radius (at 1 / e**2 power)
           dOpt = the optical thickness, normalized by lambda, of each
-                 coating layer.
-    New optional arguments:
-            Ic = Circulating Laser Power falling on the Mirror (W).
-                 If provided, amplitude noise due to coating brownian noise
-                 will be calculated and its effect on the phase noise will be
-                 added. If None(default), this effect will be ignored.
-           mTi = Mirror Transmittance. If None(default), calculated complex
-                 reflectivity of the mirror will be used for calculating the
-                 transmittance of the mirror.
-    The following new optional arguments should be made available in the
-    Materials object to provide separate Bulk and Shear loss angles and to
-    observe effect of photoelasticity:*
+                 coating layer
+         power = Circulating Laser Power falling on the Mirror (W).
+    If the material.Coating.IncCoatBrAmpNoise parameter is present and
+    evaluates to True the amplitude noise due to coating brownian
+    noise will be calculated and its effect on the phase noise will be
+    added.  In that case the following new optional arguments should
+    be made available in the Materials object to provide separate Bulk
+    and Shear loss angles and to observe effect of photoelasticity:*
      lossBlown = Coating Bulk Loss Angle of Low Refrac.Index layer @ 100Hz
      lossSlown = Coating Shear Loss Angle of Low Refrac. Index layer @ 100Hz
     lossBhighn = Coating Bulk Loss Angle of High Refrac. Index layer @ 100Hz
@@ -66,6 +61,7 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt,
     If the optional arguments are not present, Phihighn and Philown will be
     used as both Bulk and Shear loss angles and PET coefficients will be set
     to 0.
+
     """
     # extract substructures
     sub = materials.Substrate
@@ -219,9 +215,10 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt,
 
     # From Sec II.E. Eq.(41)
     # Conversion of brownian amplitude noise to displacement noise
-    if Ic is not None:
-        if mTi is None:
-            mTi = 1-np.abs(rho)**2    # Transmittance of optic
+    if coat.get('IncCoatBrAmpNoise'):
+
+        # get/calculate optic transmittance
+        mTi = optic.get('Transmittance', 1-np.abs(rho)**2)
 
         # Define Re(epsilon)/2
         Rp1 = np.real(Ep1) / 2   # First part of Re(epsilon)/2
@@ -244,7 +241,7 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt,
         S_Zeta = (np.tensordot(p_Bk, S_Bk, axes=1)
                   + np.tensordot(p_Sk, S_Sk, axes=1))
 
-        AmpToDispConvFac = ((32 * Ic)
+        AmpToDispConvFac = ((32 * power)
                             / (materials.MirrorMass * wavelength
                                * f**2 * c * 2 * pi * sqrt(mTi)))
         # Adding the two pathways of noise contribution as correlated noise

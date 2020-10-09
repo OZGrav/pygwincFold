@@ -9,11 +9,12 @@ from ..const import kB
 from ..suspension import getJointParams
 
 
-def suspension_thermal(f, sus):
+def suspension_thermal(f, sus, sustf):
     """Suspension thermal noise.
 
     :f: frequency array in Hz
     :sus: gwinc suspension structure
+    :sustf: sus transfer function Struct
 
     :returns: displacement noise power spectrum at :f:
 
@@ -25,22 +26,13 @@ def suspension_thermal(f, sus):
     pre-calculated and populated into the relevant `sus` fields.
 
     """
-
+    # suspension TFs
+    hForce = sustf.hForce
+    vForce = sustf.vForce
     # and vertical to beamline coupling angle
-    theta = sus.VHCoupling.theta
+    theta = sustf.VHCoupling.theta
 
     noise = np.zeros_like(f)
-
-    ##########################################################
-    # Suspension TFs
-    ##########################################################
-
-    hForce = sus.hForce
-    vForce = sus.vForce
-
-    ##########################################################
-    # Thermal Noise Calculation
-    ##########################################################
 
     # Here the suspension stage list is reversed so that the last stage
     # in the list is the test mass

@@ -7,6 +7,73 @@ from . import logger
 from .trace import BudgetTrace
 
 
+def precomp(*precomp_funcs, **precomp_fmaps):
+    """BudgetItem.calc decorator to add pre-computed functions
+
+    This is intended to decorate BudgetItem.calc() methods with common
+    functions whose return value are cached for later use.  The
+    functions are supplied with the `freq` array and `ifo` Struct
+    attributes as arguments, and their return values are provided as
+    keyword arguments to calc().
+
+    For example, if a calc method is defined as:
+
+      @precomp(foo=precomp_foo)
+      @precomp(bar=precomp_bar)
+      def calc(self, foo, bar):
+          ...
+
+    then when the budget is run the precomp functions will be executed
+    before calc(), roughly the equivalent of:
+
+      foo = precomp_foo(self.freq, self.ifo)
+      bar = precomp_bar(self.freq, self.ifo)
+      psd = calc(foo=foo, bar=bar)
+
+    The execution state of each precomp function is cached so that the
+    same function is not needlessly executed multiple times.
+
+    """
+    def decorator(func):
+        if precomp_funcs:
+            try:
+                func._precomp_list.extend(precomp_funcs)
+            except AttributeError:
+                func._precomp_list = list(precomp_funcs)
+
+        if precomp_fmaps:
+            try:
+                func._precomp_mapped.update(precomp_fmaps)
+            except AttributeError:
+                func._precomp_mapped = dict(precomp_fmaps)
+        return func
+    return decorator
+
+
+def _precomp_recurse_mapping(func, freq, ifo, _precomp):
+    """Recursively execute @precomp decorator functions
+
+    Recurses down functions which may themselves have precomp
+    decorators, building a **kwargs mapping to pass to the wrapped
+    function call.
+
+    """
+    for pc_func in itertools.chain(
+            getattr(func, '_precomp_list', []),
+            getattr(func, '_precomp_mapped', {}).values(),
+    ):
+        if pc_func in _precomp:
+            continue
+        pc_map = _precomp_recurse_mapping(pc_func, freq, ifo, _precomp=_precomp)
+        logger.debug("precomp {}".format(pc_func))
+        _precomp[pc_func] = pc_func(freq, ifo, **pc_map)
+
+    kwargs = {
+        name: _precomp[pc_func] for name, pc_func in getattr(func, '_precomp_mapped', {}).items()
+    }
+    return kwargs
+
+
 def quadsum(data):
     """Calculate quadrature sum of list of data arrays.
 
@@ -53,6 +120,12 @@ class BudgetItem:
         """
         return None
 
+    def _calc(self, _precomp=None):
+        """internal function to call calc with precomp evaluation"""
+        pcmap = _precomp_recurse_mapping(self.calc, self.freq, self.ifo, _precomp)
+        logger.debug("calc {}".format(self.name))
+        return self.calc(**pcmap)
+
     ##########
 
     def __init__(self, freq=None, **kwargs):
@@ -71,6 +144,7 @@ class BudgetItem:
             self.freq = freq
         for key, val in kwargs.items():
             setattr(self, key, val)
+        self._loaded = False
 
     @property
     def name(self):
@@ -116,7 +190,7 @@ class Calibration(BudgetItem):
         e.g. point-by-point product of data and calibration arrays.
 
         """
-        cal = self.calc()
+        cal = self._calc()
         assert data.shape == cal.shape, \
             "data shape does not match calibration ({} != {})".format(data.shape, cal.shape)
         return data * cal
@@ -144,7 +218,7 @@ class Noise(BudgetItem):
             budget=budget,
         )
 
-    def calc_trace(self, calibration=1, calc=True):
+    def calc_trace(self, calibration=1, calc=True, _precomp=None):
         """Calculate noise and return BudgetTrace object
 
         `calibration` should either be a scalar or a len(self.freq)
@@ -156,21 +230,53 @@ class Noise(BudgetItem):
         trace style info.
 
         """
+        if _precomp is None:
+            _precomp = dict()
+
         total = None
         if calc:
-            total = self.calc() * calibration
+            total = self._calc(_precomp) * calibration
+
         return self._make_trace(psd=total)
 
     def run(self, **kwargs):
-        """Convenience method to load, update, and return calc traces.
+        """Run full budget and return BudgetTrace object.
 
-        Equivalent of load(), update(), calc_traces() run in sequence.
-        Keyword arguments are passed to update().
+        Roughly the equivalent running load(), update(), and
+        calc_trace() in sequence.  Keyword arguments are passed to the
+        update() method.
+
+        NOTE: The load status is cached such that subsequent calls to
+        this method will not re-execute the load() method.
+
+        NOTE: The update() method is only run if keyword arguments
+        (`kwargs`) are supplied, or if the `ifo` attribute has
+        changed.
 
         """
-        self.load()
-        self.update(**kwargs)
-        return self.calc_trace()
+        if not self._loaded:
+            self.load()
+            self._loaded = True
+
+        ifo = kwargs.get('ifo', getattr(self, 'ifo'))
+        if ifo:
+            if not hasattr(ifo, '_orig_keys'):
+                logger.debug("new ifo detected")
+                ifo._orig_keys = tuple(k for k, v in ifo.walk())
+                ifo_hash = ifo.hash()
+                kwargs['ifo'] = ifo
+            else:
+                ifo_hash = ifo.hash(ifo._orig_keys)
+                if ifo_hash != getattr(self, '_ifo_hash', 0):
+                    logger.debug("ifo hash change")
+                    kwargs['ifo'] = self.ifo
+            self._ifo_hash = ifo_hash
+
+        _precomp = dict()
+        if kwargs:
+            self.update(**kwargs)
+
+        return self.calc_trace(_precomp=_precomp)
 
 
 class Budget(Noise):
@@ -366,18 +472,22 @@ class Budget(Noise):
             logger.debug("load {}".format(item))
             item.load()
 
-    def update(self, **kwargs):
-        """Update all noise and cal objects with supplied kwargs."""
-        super().update(**kwargs)
+    def update(self, _precomp=None, **kwargs):
+        """Recursively update all noise and cal objects with supplied kwargs.
+
+        See BudgetItem.update() for more info.
+
+        """
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
         for name, item in itertools.chain(
                 self._cal_objs.items(),
                 self._noise_objs.items()):
             logger.debug("update {}".format(item))
             item.update(**kwargs)
 
-    update.__doc__ = Noise.update.__doc__
-
-    def calc_noise(self, name, calibration=1, calc=True, _cals=None):
+    def calc_noise(self, name, calibration=1, calc=True, _cals=None, _precomp=None):
         """Return calibrated individual noise BudgetTrace.
 
         The noise and calibration transfer functions are calculated,
@@ -386,21 +496,22 @@ class Budget(Noise):
         the noise.
 
         """
+        if _precomp is None:
+            _precomp = dict()
         for cal in self._noise_cals[name]:
             if _cals:
                 calibration *= _cals[cal]
             else:
                 obj = self._cal_objs[cal]
-                logger.debug("calc {}".format(obj))
-                calibration *= obj.calc()
+                calibration *= obj._calc(_precomp)
         noise = self._noise_objs[name]
-        logger.debug("calc {}".format(noise))
         return noise.calc_trace(
             calibration=calibration,
             calc=calc,
+            _precomp=_precomp,
         )
 
-    def calc_trace(self, calibration=1, calc=True):
+    def calc_trace(self, calibration=1, calc=True, _precomp=None):
         """Calculate all budget noises and return BudgetTrace object
 
         `calibration` should either be a scalar or a len(self.freq)
@@ -412,12 +523,13 @@ class Budget(Noise):
         trace style info.
 
         """
+        if _precomp is None:
+            _precomp = dict()
+
         _cals = {}
         if calc:
             for name, cal in self._cal_objs.items():
-                logger.debug("calc {}".format(cal))
-                _cals[name] = cal.calc()
-
+                _cals[name] = cal._calc(_precomp)
         budget = []
         for name in self._noise_objs:
             trace = self.calc_noise(
@@ -425,9 +537,9 @@ class Budget(Noise):
                 calibration=calibration,
                 calc=calc,
                 _cals=_cals,
+                _precomp=_precomp,
             )
             budget.append(trace)
-
         total = quadsum([trace.psd for trace in budget])
         return self._make_trace(
             psd=total, budget=budget
