@@ -173,7 +173,9 @@ class Struct(object):
 
         """
         d = {}
-        for k,v in self.__dict__.items():
+        for k, v in self.__dict__.items():
+            if k[0] == '_':
+                continue
             if isinstance(v, Struct):
                 d[k] = v.to_dict(array=array)
             else:
