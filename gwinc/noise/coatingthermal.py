@@ -10,7 +10,7 @@ from ..const import BESSEL_ZEROS as zeta
 from ..const import J0M as j0m
 
 
-def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
+def coating_brownian(f, mirror, wavelength, wBeam, power):
     """Coating brownian noise for a given collection of coating layers
 
     This function calculates Coating Brownian noise using
@@ -26,11 +26,9 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
     low-n first.
     Inputs:
              f = frequency vector in Hz
-     materials = gwinc optic materials structure
+        mirror = mirror properties Struct
     wavelength = laser wavelength
          wBeam = beam radius (at 1 / e**2 power)
-          dOpt = the optical thickness, normalized by lambda, of each
-                 coating layer
          power = Circulating Laser Power falling on the Mirror (W).
     If the material.Coating.IncCoatBrAmpNoise parameter is present and
     evaluates to True the amplitude noise due to coating brownian
@@ -64,8 +62,8 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
 
     """
     # extract substructures
-    sub = materials.Substrate
-    coat = materials.Coating
+    sub = mirror.Substrate
+    coat = mirror.Coating
 
     # Constants
     kBT = const.kB * sub.Temp
@@ -77,6 +75,7 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
     nsub = sub.RefractiveIndex    # Refractive Index
 
     # coating properties
+    dOpt = mirror.Coating.dOpt
     Yhighn = coat.Yhighn
     sigmahighn = coat.Sigmahighn
     nH = coat.Indexhighn
@@ -218,7 +217,7 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
     if coat.get('IncCoatBrAmpNoise'):
 
         # get/calculate optic transmittance
-        mTi = optic.get('Transmittance', 1-np.abs(rho)**2)
+        mTi = mirror.get('Transmittance', 1-np.abs(rho)**2)
 
         # Define Re(epsilon)/2
         Rp1 = np.real(Ep1) / 2   # First part of Re(epsilon)/2
@@ -242,7 +241,7 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
                   + np.tensordot(p_Sk, S_Sk, axes=1))
 
         AmpToDispConvFac = ((32 * power)
-                            / (materials.MirrorMass * wavelength
+                            / (mirror.MirrorMass * wavelength
                                * f**2 * c * 2 * pi * sqrt(mTi)))
         # Adding the two pathways of noise contribution as correlated noise
         SbrZ = (sqrt(S_Xi) + AmpToDispConvFac * sqrt(S_Zeta))**2
@@ -252,14 +251,13 @@ def coating_brownian(f, materials, wavelength, wBeam, dOpt, power):
     return SbrZ
 
 
-def coating_thermooptic(f, materials, wavelength, wBeam, dOpt):
+def coating_thermooptic(f, mirror, wavelength, wBeam):
     """Optical coating thermo-optic displacement noise spectrum
 
     :f: frequency array in Hz
-    :materials: gwinc optic materials structure
+    :mirror: mirror parameter Struct
     :wavelength: laser wavelength
     :wBeam: beam radius (at 1 / e**2 power)
-    :dOpt: coating layer thickness array (Nlayer x 1)
 
     :returns: tuple of:
     StoZ = displacement noise power spectrum at :f:
@@ -269,15 +267,15 @@ def coating_thermooptic(f, materials, wavelength, wBeam, dOpt):
 
     """
     # compute coefficients
-    dTO, dTR, dTE, T, junk = getCoatTOPos(materials, wavelength, wBeam, dOpt)
+    dTO, dTR, dTE, T, junk = getCoatTOPos(mirror, wavelength, wBeam)
 
     # compute correction factors
-    gTO = getCoatThickCorr(f, materials, wavelength, dOpt, dTE, dTR)
-    gTE = getCoatThickCorr(f, materials, wavelength, dOpt, dTE, 0)
-    gTR = getCoatThickCorr(f, materials, wavelength, dOpt, 0, dTR)
+    gTO = getCoatThickCorr(f, mirror, wavelength, dTE, dTR)
+    gTE = getCoatThickCorr(f, mirror, wavelength, dTE, 0)
+    gTR = getCoatThickCorr(f, mirror, wavelength, 0, dTR)
 
     # compute thermal source spectrum
-    SsurfT, junk = getCoatThermal(f, materials, wBeam)
+    SsurfT, junk = getCoatThermal(f, mirror, wBeam)
 
     StoZ = SsurfT * gTO * dTO**2
     SteZ = SsurfT * gTE * dTE**2
@@ -286,13 +284,12 @@ def coating_thermooptic(f, materials, wavelength, wBeam, dOpt):
     return (StoZ, SteZ, StrZ, T)
 
 
-def getCoatTOPos(materials, wavelength, wBeam, dOpt):
+def getCoatTOPos(mirror, wavelength, wBeam):
     """Mirror position derivative wrt thermal fluctuations
 
-    :materials: gwinc optic materials structure
+    :mirror: mirror parameter Struct
     :wavelength: laser wavelength
     :wBeam: beam radius (at 1 / e**2 power)
-    :dOpt: coating layer thickness array (Nlayer x 1)
 
     :returns: tuple of:
     dTO = total thermo-optic dz/dT
@@ -307,13 +304,14 @@ def getCoatTOPos(materials, wavelength, wBeam, dOpt):
 
     """
     # parameters
-    nS = materials.Substrate.RefractiveIndex
+    nS = mirror.Substrate.RefractiveIndex
+    dOpt = mirror.Coating.dOpt
 
     # compute refractive index, effective alpha and beta
-    nLayer, aLayer, bLayer, dLayer, sLayer = getCoatLayers(materials, wavelength, dOpt)
+    nLayer, aLayer, bLayer, dLayer, sLayer = getCoatLayers(mirror, wavelength)
 
     # compute coating average parameters
-    dc, Cc, Kc, aSub = getCoatAvg(materials, wavelength, dOpt)
+    dc, Cc, Kc, aSub = getCoatAvg(mirror, wavelength)
 
     # compute reflectivity and parameters
     dphi_dT, dphi_TE, dphi_TR, rCoat = getCoatTOPhase(1, nS, nLayer, dOpt, aLayer, bLayer, sLayer)
@@ -328,7 +326,7 @@ def getCoatTOPos(materials, wavelength, wBeam, dOpt):
     dTE = dphi_TE * wavelength / (4 * pi) - aSub * dc
 
     # mirror finite size correction
-    Cfsm = getCoatFiniteCorr(materials, wavelength, wBeam, dOpt)
+    Cfsm = getCoatFiniteCorr(mirror, wavelength, wBeam)
     dTE = dTE * Cfsm
 
     # add TE and TR effects (sign is already included)
@@ -337,14 +335,13 @@ def getCoatTOPos(materials, wavelength, wBeam, dOpt):
     return dTO, dTR, dTE, T, R
 
 
-def getCoatThickCorr(f, materials, wavelength, dOpt, dTE, dTR):
+def getCoatThickCorr(f, mirror, wavelength, dTE, dTR):
     """Finite coating thickness correction
 
     :f: frequency array in Hz
-    :materials: gwinc optic materials structure
+    :mirror: gwinc optic mirror structure
     :wavelength: laser wavelength
     :wBeam: beam radius (at 1 / e**2 power)
-    :dOpt: coating layer thickness array (Nlayer x 1)
 
     Uses correction factor from LIGO-T080101, "Thick Coating
     Correction" (Evans).
@@ -362,12 +359,12 @@ def getCoatThickCorr(f, materials, wavelength, dOpt, dTE, dTR):
     #  gTC = 1 - xi * (R - 1 / (3 * R));
 
     # parameter extraction
-    pS = materials.Substrate
+    pS = mirror.Substrate
     Cs = pS.MassCM * pS.MassDensity
     Ks = pS.MassKappa
 
     # compute coating average parameters
-    dc, Cc, Kc, junk = getCoatAvg(materials, wavelength, dOpt)
+    dc, Cc, Kc, junk = getCoatAvg(mirror, wavelength)
 
     # R and xi (from T080101, Thick Coating Correction)
     w = 2 * pi * f
@@ -396,11 +393,11 @@ def getCoatThickCorr(f, materials, wavelength, dOpt, dTE, dTR):
     return gTC
 
 
-def getCoatThermal(f, materials, wBeam):
+def getCoatThermal(f, mirror, wBeam):
     """Thermal noise spectra for a surface layer
 
     :f: frequency array in Hz
-    :materials: gwinc optic material structure
+    :mirror: mirror parameter Struct
     :wBeam: beam radius (at 1 / e**2 power)
 
     :returns: tuple of:
@@ -408,7 +405,7 @@ def getCoatThermal(f, materials, wBeam):
     rdel = thermal diffusion length at each frequency in m
 
     """
-    pS = materials.Substrate
+    pS = mirror.Substrate
     C_S = pS.MassCM * pS.MassDensity
     K_S = pS.MassKappa
     kBT2 = const.kB * pS.Temp**2
@@ -425,12 +422,11 @@ def getCoatThermal(f, materials, wBeam):
     return SsurfT, rdel
 
 
-def getCoatLayers(materials, wavelength, dOpt):
+def getCoatLayers(mirror, wavelength):
     """Layer vectors for refractive index, effective alpha and beta and geometrical thickness
 
-    :materials: gwinc optic materials structure
+    :mirror: mirror parameter Struct
     :wavelength: laser wavelength
-    :dOpt: coating layer thickness array (Nlayer x 1)
 
     :returns: tuple of:
     nLayer = refractive index of each layer, ordered input to output (N x 1)
@@ -444,8 +440,9 @@ def getCoatLayers(materials, wavelength, dOpt):
 
     """
     # coating parameters
-    pS = materials.Substrate
-    pC = materials.Coating
+    pS = mirror.Substrate
+    pC = mirror.Coating
+    dOpt = mirror.Coating.dOpt
 
     Y_S = pS.MirrorY
     sigS = pS.MirrorSigma
@@ -499,12 +496,11 @@ def getCoatLayers(materials, wavelength, dOpt):
     return nLayer, aLayer, bLayer, dLayer, sLayer
 
 
-def getCoatAvg(materials, wavelength, dOpt):
+def getCoatAvg(mirror, wavelength):
     """Coating average properties
 
-    :materials: gwinc optic materials structure
+    :mirror: gwinc optic mirror structure
     :wavelength: laser wavelength
-    :dOpt: coating layer thickness array (Nlayer x 1)
 
     :returns: tuple of:
     dc = total thickness (meters)
@@ -514,8 +510,9 @@ def getCoatAvg(materials, wavelength, dOpt):
 
     """
     # coating parameters
-    pS = materials.Substrate
-    pC = materials.Coating
+    pS = mirror.Substrate
+    pC = mirror.Coating
+    dOpt = mirror.Coating.dOpt
 
     alphaS = pS.MassAlpha
     C_S = pS.MassCM * pS.MassDensity
@@ -528,7 +525,7 @@ def getCoatAvg(materials, wavelength, dOpt):
     K_H = pC.ThermalDiffusivityhighn
 
     # compute refractive index, effective alpha and beta
-    junk1, junk2, junk3, dLayer, junk4 = getCoatLayers(materials, wavelength, dOpt)
+    junk1, junk2, junk3, dLayer, junk4 = getCoatLayers(mirror, wavelength)
 
     # heat capacity
     dc = np.sum(dLayer)
@@ -598,13 +595,12 @@ def getCoatTOPhase(nIn, nOut, nLayer, dOpt, aLayer, bLayer, sLayer):
     return dphi_dT, dphi_TE, dphi_TR, rCoat
 
 
-def getCoatFiniteCorr(materials, wavelength, wBeam, dOpt):
+def getCoatFiniteCorr(mirror, wavelength, wBeam):
     """Finite mirror size correction
 
-    :materials: gwinc optic materials structure
+    :mirror: mirror parameter Struct
     :wavelength: laser wavelength
     :wBeam: beam radius (at 1 / e**2 power)
-    :dOpt: coating layer thickness array (Nlayer x 1)
 
     Uses correction factor from PLA 2003 vol 312 pg 244-255
     "Thermodynamical fluctuations in optical mirror coatings"
@@ -617,25 +613,26 @@ def getCoatFiniteCorr(materials, wavelength, wBeam, dOpt):
 
     """
     # parameter extraction
-    R = materials.MassRadius
-    H = materials.MassThickness
+    R = mirror.MassRadius
+    H = mirror.MassThickness
+    dOpt = mirror.Coating.dOpt
 
-    alphaS = materials.Substrate.MassAlpha
-    C_S = materials.Substrate.MassCM * materials.Substrate.MassDensity
-    Y_S = materials.Substrate.MirrorY
-    sigS = materials.Substrate.MirrorSigma
+    alphaS = mirror.Substrate.MassAlpha
+    C_S = mirror.Substrate.MassCM * mirror.Substrate.MassDensity
+    Y_S = mirror.Substrate.MirrorY
+    sigS = mirror.Substrate.MirrorSigma
 
-    alphaL = materials.Coating.Alphalown
-    C_L = materials.Coating.CVlown
-    Y_L = materials.Coating.Ylown
-    sigL = materials.Coating.Sigmalown
-    nL = materials.Coating.Indexlown
+    alphaL = mirror.Coating.Alphalown
+    C_L = mirror.Coating.CVlown
+    Y_L = mirror.Coating.Ylown
+    sigL = mirror.Coating.Sigmalown
+    nL = mirror.Coating.Indexlown
 
-    alphaH = materials.Coating.Alphahighn
-    C_H = materials.Coating.CVhighn
-    Y_H = materials.Coating.Yhighn
-    sigH = materials.Coating.Sigmahighn
-    nH = materials.Coating.Indexhighn
+    alphaH = mirror.Coating.Alphahighn
+    C_H = mirror.Coating.CVhighn
+    Y_H = mirror.Coating.Yhighn
+    sigH = mirror.Coating.Sigmahighn
+    nH = mirror.Coating.Indexhighn
 
     # coating sums
     dL = wavelength * np.sum(dOpt[::2]) / nL
