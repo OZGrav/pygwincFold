@@ -34,7 +34,7 @@ def plot_budget(
     for name, trace in budget.items():
         style = trace.style
         if 'label' not in style:
-            style['label'] = budget.name
+            style['label'] = name
         if 'linewidth' in style:
             style['lw'] = style['linewidth']
         elif 'lw' not in style:
