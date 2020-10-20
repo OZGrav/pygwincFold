@@ -142,6 +142,7 @@ class BudgetItem:
         if freq is not None:
             assert isinstance(freq, np.ndarray)
             self.freq = freq
+        self.ifo = None
         for key, val in kwargs.items():
             setattr(self, key, val)
         self._loaded = False
