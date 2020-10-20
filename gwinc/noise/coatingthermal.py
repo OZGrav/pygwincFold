@@ -10,7 +10,7 @@ from ..const import BESSEL_ZEROS as zeta
 from ..const import J0M as j0m
 
 
-def coating_brownian(f, mirror, wavelength, wBeam, power):
+def coating_brownian(f, mirror, wavelength, wBeam, power=None):
     """Coating brownian noise for a given collection of coating layers
 
     This function calculates Coating Brownian noise using
@@ -32,22 +32,24 @@ def coating_brownian(f, mirror, wavelength, wBeam, power):
          wBeam = beam radius (at 1 / e**2 power)
          power = laser power falling on the mirror (W)
 
-    If the mirror.Coating.IncCoatBrAmpNoise parameter is present and
-    evaluates to True the amplitude noise due to coating brownian
-    noise will be calculated and its effect on the phase noise will be
-    added.  In that case the following new optional arguments should
-    be made available in the Materials object to provide separate Bulk
-    and Shear loss angles and to observe effect of photoelasticity:*
-     lossBlown = Coating Bulk Loss Angle of Low Refrac.Index layer @ 100Hz
-     lossSlown = Coating Shear Loss Angle of Low Refrac. Index layer @ 100Hz
+    If the power argument is present and is not None, the amplitude noise due
+    to coating brownian noise will be calculated and its effect on the phase
+    noise will be added (assuming the susceptibility is that of a free mass)
+
+    ***The following parameters are experimental and unsupported as yet***
+    The following optional parameters are available in the Materials object
+    to provide separate Bulk and Shear loss angles and to include the effect
+    of photoelasticity:
+    lossBlown = Coating Bulk Loss Angle of Low Refrac.Index layer @ 100Hz
+    lossSlown = Coating Shear Loss Angle of Low Refrac. Index layer @ 100Hz
     lossBhighn = Coating Bulk Loss Angle of High Refrac. Index layer @ 100Hz
     lossShighn = Coating Shear Loss Angle of High Refrac. Index layer @ 100Hz
-  lossBlown_slope = Coating Bulk Loss Angle Slope of Low Refrac. Index layer
-  lossSlown_slope = Coating Shear Loss Angle Slope of Low Refrac. Index layer
-  lossBhighn_slope = Coating Bulk Loss Angle Slope of High Refrac. Index layer
-  lossShighn_slope = Coating Shear Loss Angle Slope of High Refrac. Index layer
-       PETlown = Relevant component of Photoelastic Tensor of High n layer*
-      PEThighn = Relevant component of Photoelastic Tensor of Low n layer*
+    lossBlown_slope = Coating Bulk Loss Angle Slope of Low Refrac. Index layer
+    lossSlown_slope = Coating Shear Loss Angle Slope of Low Refrac. Index layer
+    lossBhighn_slope = Coating Bulk Loss Angle Slope of High Refrac. Index layer
+    lossShighn_slope = Coating Shear Loss Angle Slope of High Refrac. Index layer
+    PETlown = Relevant component of Photoelastic Tensor of High n layer*
+    PEThighn = Relevant component of Photoelastic Tensor of Low n layer*
 
     Returns:
       SbrZ = Brownian noise spectra for one mirror in m**2 / Hz
@@ -216,7 +218,7 @@ def coating_brownian(f, mirror, wavelength, wBeam, power):
 
     # From Sec II.E. Eq.(41)
     # Conversion of brownian amplitude noise to displacement noise
-    if coat.get('IncCoatBrAmpNoise'):
+    if power is not None:
 
         # get/calculate optic transmittance
         mTi = mirror.get('Transmittance', 1-np.abs(rho)**2)

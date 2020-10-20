@@ -313,14 +313,13 @@ class CoatingBrownian(nb.Noise):
     def calc(self):
         ITM = mirror_struct(self.ifo, 'ITM')
         ETM = mirror_struct(self.ifo, 'ETM')
-        power = ifo_power(self.ifo)
         cavity = arm_cavity(self.ifo)
         wavelength = self.ifo.Laser.Wavelength
         nITM = noise.coatingthermal.coating_brownian(
-            self.freq, ITM, wavelength, cavity.wBeam_ITM, power.parm,
+            self.freq, ITM, wavelength, cavity.wBeam_ITM
         )
         nETM = noise.coatingthermal.coating_brownian(
-            self.freq, ETM, wavelength, cavity.wBeam_ETM, power.parm,
+            self.freq, ETM, wavelength, cavity.wBeam_ETM
         )
         return (nITM + nETM) * 2
 
