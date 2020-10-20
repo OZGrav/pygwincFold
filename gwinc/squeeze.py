@@ -1,27 +1,30 @@
 from numpy import pi, sqrt
 
 from . import const
+from .ifo.noises import ifo_power
 
 
 def sql(ifo):
     """Computer standard quantum limit (SQL) for IFO"""
     c = const.c
-    Parm = ifo.gwinc.parm
+    power = ifo_power(ifo)
     w0 = 2 * pi * c / ifo.Laser.Wavelength
-    m = ifo.Materials.MirrorMass
+    rho = ifo.Materials.Substrate.MassDensity
+    m = pi * ifo.Materials.MassRadius**2 * ifo.Materials.MassThickness * rho
     Titm = ifo.Optics.ITM.Transmittance
     Tsrm = ifo.Optics.SRM.Transmittance
     tSR = sqrt(Tsrm)
     rSR = sqrt(1 - Tsrm)
-    fSQL = (1/(2*pi))*(8/c)*sqrt((Parm*w0)/(m*Titm))*(tSR/(1+rSR))
+    fSQL = (1/(2*pi))*(8/c)*sqrt((power.parm*w0)/(m*Titm))*(tSR/(1+rSR))
     return fSQL
 
 
-def computeFCParams(ifo, fcParams):
+def computeFCParams(ifo):
     """Compute ideal filter cavity Tin, detuning [Hz] and bandwidth [Hz]
 
     """
     # FC parameters
+    fcParams = ifo.Squeezer.FilterCavity
     c = const.c
     fsrFC = c / (2 * fcParams.L)
     lossFC = fcParams.Lrt + fcParams.Te
@@ -40,7 +43,8 @@ def computeFCParams(ifo, fcParams):
     # input mirror transmission
     TinFC = 4 * pi * gammaFC / fsrFC - lossFC
     if TinFC < lossFC:
-        raise RuntimeError('IFC: Losses are too high! %.1f ppm max.' % 1e6 * gammaFC / fsrFC)
+        raise RuntimeError(
+            'IFC: Losses are too high! {:0.1f} ppm max.'.format(1e6 * gammaFC / fsrFC))
 
     # Add to fcParams structure
     fcParams.Ti = TinFC
