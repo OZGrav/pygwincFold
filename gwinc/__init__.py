@@ -14,7 +14,7 @@ from .plot import plot_noise
 logger = logging.getLogger('gwinc')
 
 
-def _load_module(name_or_path):
+def load_module(name_or_path):
     """Load module from name or path.
 
     Return loaded module and module path.
@@ -83,7 +83,7 @@ def load_budget(name_or_path, freq=None):
         modname = 'gwinc.ifo.'+name_or_path
 
     logger.info("loading module {}...".format(modname))
-    mod, modpath = _load_module(modname)
+    mod, modpath = load_module(modname)
     Budget = getattr(mod, bname)
     ifopath = os.path.join(modpath, 'ifo.yaml')
     if not ifo and os.path.exists(ifopath):
