@@ -543,7 +543,7 @@ class Budget(Noise):
                 _precomp=_precomp,
             )
             budget.append(trace)
-        total = quadsum([trace.psd for trace in budget])
+        total = quadsum([trace.psd for trace in budget if trace.name in self._budget_noises])
         return self._make_trace(
             psd=total, budget=budget
         )
