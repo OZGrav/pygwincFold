@@ -376,7 +376,7 @@ class Struct(object):
         base, ext = os.path.splitext(path)
 
         if ext == '.m':
-            from ..gwinc_matlab import Matlab
+            from .gwinc_matlab import Matlab
             matlab = Matlab()
             matlab.addpath(os.path.dirname(path))
             func_name = os.path.basename(base)
