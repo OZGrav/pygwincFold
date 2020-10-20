@@ -14,6 +14,31 @@ from .plot import plot_noise
 logger = logging.getLogger('gwinc')
 
 
+DEFAULT_FREQ = '5:3000:6000'
+
+
+def freq_from_spec(spec=None):
+    """logarithmicly spaced frequency array, based on specification string
+
+    Specification string should be of form 'START:[NPOINTS:]STOP'.  If
+    `spec` is an array, then the array is returned as-is, and if it's
+    None the DEFAULT_FREQ specification is used.
+
+    """
+    if isinstance(spec, np.ndarray):
+        return spec
+    elif spec is None:
+        spec = DEFAULT_FREQ
+    fspec = spec.split(':')
+    if len(fspec) == 2:
+        fspec = fspec[0], DEFAULT_FREQ.split(':')[1], fspec[1]
+    return np.logspace(
+        np.log10(float(fspec[0])),
+        np.log10(float(fspec[2])),
+        int(fspec[1]),
+    )
+
+
 def load_module(name_or_path):
     """Load module from name or path.
 
@@ -43,19 +68,24 @@ def load_budget(name_or_path, freq=None):
 
     Accepts either the name of a built-in canonical budget (see
     gwinc.IFOS), the path to a budget package (directory) or module
-    (ending in .py), or the path to an IFO struct definition file (see
+    (ending in .py), or the path to an IFO Struct definition file (see
     gwinc.Struct).
 
     If the budget is a package directory which includes an 'ifo.yaml'
     file the ifo Struct will be loaded from that file and assigned to
-    the budget.ifo attribute.  If a struct definition file is provided
-    the base aLIGO budget definition and ifo will be assumed.
+    the budget.ifo attribute.  If a Struct definition file is provided
+    the base aLIGO budget definition will be assumed.
 
-    Returns a Budget object instantiated with the provided frequency
-    array (if specified), and with any included ifo assigned as an
-    object attribute.  If a frequency array is not provided and the
-    budget class does not define it's own, the frequency array must be
-    provided at budget update() or run() time.
+    Returns an instantiated Budget object.  If a frequency array or
+    frequency specification string (see `freq_from_spec()`) is
+    provided, the budget will be instantiated with the provided array.
+    If a frequency array is not provided and the Budget class
+    definition includes a `freq` attribute defining either an array or
+    specification string, then that array will be used.  Otherwise a
+    default array will be provided (see DEFAULT_FREQ).
+
+    Any included ifo will be assigned as an attribute to the returned
+    Budget object.
 
     """
     ifo = None
@@ -85,6 +115,9 @@ def load_budget(name_or_path, freq=None):
     logger.info("loading module {}...".format(modname))
     mod, modpath = load_module(modname)
     Budget = getattr(mod, bname)
+    if freq is None:
+        freq = getattr(Budget, 'freq', None)
+    freq = freq_from_spec(freq)
     ifopath = os.path.join(modpath, 'ifo.yaml')
     if not ifo and os.path.exists(ifopath):
         ifo = Struct.from_file(ifopath)
