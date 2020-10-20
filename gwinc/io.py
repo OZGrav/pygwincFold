@@ -8,6 +8,7 @@ from .trace import BudgetTrace
 
 
 SCHEMA = 'GWINC noise budget'
+DATA_SAVE_FORMATS = ['.hdf5', '.h5']
 
 
 def _write_trace_recursive(f, trace):
@@ -20,16 +21,17 @@ def _write_trace_recursive(f, trace):
         _write_trace_recursive(tgrp, t)
 
 
-def save_hdf5(path, trace, ifo=None, plot_style=None, **kwargs):
+def save_hdf5(trace, path, ifo=None, plot_style=None, **kwargs):
     """Save GWINC budget data to an HDF5 file.
 
-    The `freq` argument should be the frequency array, and `traces`
-    should be the traces (recursive) dictionary.  Keyword arguments
-    are stored in the HDF5 top level 'attrs' key-value store.  If an
-    'ifo' keyword arg is supplied, it is assumed to be a Struct and
-    will be serialized to YAML for storage.
+    `trace` should be a BudgetTrace object (see budget.run()), and
+    `path` should be the path to the output HDF5 file.  Keyword
+    arguments are stored in the HDF5 top level 'attrs' key-value
+    store.  If an 'ifo' keyword arg is supplied, it is assumed to be a
+    Struct and will be serialized to YAML for storage.
 
-    See HDF5_SCHEMA.
+    See HDF5_SCHEMA for information on the BudgetTrace/HDF5 storage
+    format.
 
     """
     with h5py.File(path, 'w') as f:
@@ -87,27 +89,28 @@ def _load_hdf5_v1(f):
 
 
 def _load_hdf5_v2(f):
-    def read_recursive(element):
+    def read_recursive(element, freq):
         psd = element['PSD'][:]
         style = yaml.safe_load(element.attrs['style'])
         budget = []
         if 'budget' in element:
             for name, item in element['budget'].items():
-                trace = read_recursive(item)
+                trace = read_recursive(item, freq)
                 trace.name = name
                 budget.append(trace)
         return BudgetTrace(
+            freq=freq,
             psd=psd,
             budget=budget,
             style=style,
         )
+    freq = f['Freq'][:]
     for name, item in f.items():
         if name == 'Freq':
-            freq = item[:]
+            continue
         else:
-            trace = read_recursive(item)
+            trace = read_recursive(item, freq)
             trace.name = name
-    trace._freq = freq
     trace.ifo = None
     attrs = dict(f.attrs)
     ifo = attrs.get('ifo')
@@ -117,18 +120,19 @@ def _load_hdf5_v2(f):
             del attrs['ifo']
         except yaml.constructor.ConstructorError:
             logger.warning("HDF5 load warning: Could not de-serialize 'ifo' YAML attribute.")
-    trace.plot_style = yaml.safe_load(attrs['plot_style'])
+    trace.plot_style = yaml.safe_load(attrs.get('plot_style', ''))
     return trace
 
 
 def load_hdf5(path):
     """Load GWINC budget data from an HDF5 file.
 
-    Returns BudgetTrace.  An 'ifo' attr will be de-serialized from
-    YAML into a Struct object and assigned as an attribute to the
-    BudgetTrace.
+    Returns BudgetTrace for trace data stored in the HDF5 file at
+    `path`.  An 'ifo' attr will be de-serialized from YAML into a
+    Struct object and assigned as an attribute to the BudgetTrace.
 
-    See HDF5_SCHEMA.
+    See HDF5_SCHEMA for information on the BudgetTrace/HDF5 storage
+    format.
 
     """
     loaders = {

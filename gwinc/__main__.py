@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 
 from . import IFOS, load_budget, plot_budget, logger
+from . import io
 
 logger.setLevel(os.getenv('LOG_LEVEL', 'WARNING').upper())
 formatter = logging.Formatter('%(message)s')
@@ -53,7 +54,6 @@ See the inspiral_range package documentation for details.
 IFO = 'aLIGO'
 FREQ = '5:3000:6000'
 FOM = 'range:m1=1.4,m2=1.4'
-DATA_SAVE_FORMATS = ['.hdf5', '.h5']
 
 parser = argparse.ArgumentParser(
     prog='gwinc',
@@ -116,7 +116,7 @@ def main():
     ##########
     # initial arg processing
 
-    if os.path.splitext(os.path.basename(args.IFO))[1] in DATA_SAVE_FORMATS:
+    if os.path.splitext(os.path.basename(args.IFO))[1] in io.DATA_SAVE_FORMATS:
         if args.freq:
             parser.exit(2, "Frequency specification not allowed when loading traces from file.\n")
         if args.ifo:
@@ -178,7 +178,7 @@ def main():
     if args.save:
         args.plot = False
         for path in args.save:
-            if os.path.splitext(path)[1] in DATA_SAVE_FORMATS:
+            if os.path.splitext(path)[1] in io.DATA_SAVE_FORMATS:
                 out_data_files.add(path)
         out_plot_files = set(args.save) - out_data_files
 
@@ -303,12 +303,11 @@ In [.]: plt.savefig("foo.pdf")
 
     # save noise trace to HDF5 file
     if out_data_files:
-        from .io import save_hdf5
         for path in out_data_files:
             logger.info("saving budget trace: {}".format(path))
-            save_hdf5(
-                path=path,
+            io.save_hdf5(
                 trace=trace,
+                path=path,
                 ifo=ifo,
                 plot_style=plot_style,
             )
