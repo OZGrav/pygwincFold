@@ -113,12 +113,21 @@ For custom plotting, parameter optimization, etc. all functionality can be
 accessed directly through the `gwinc` library interface:
 ```python
 >>> import gwinc
->>> import numpy as np
->>> freq = np.logspace(1, 3, 1000)
->>> budget = gwinc.load_budget('aLIGO', freq)
+>>> budget = gwinc.load_budget('aLIGO')
 >>> trace = budget.run()
 >>> fig = gwinc.plot_budget(trace)
 >>> fig.show()
+```
+A default frequency array is used, but alternative frequencies can be
+provided to `load_budget()` either in the form of a numpy array:
+```python
+>>> import numpy as np
+>>> freq = np.logspace(1, 3, 1000)
+>>> budget = gwinc.load_budget('aLIGO', freq=freq)
+```
+or frequency specification string ('FLO:[NPOINTS:]FHI'):
+```
+>>> budget = gwinc.load_budget('aLIGO', freq='10:1000:1000')
 ```
 
 The `load_budget()` function takes most of the same inputs as the
@@ -133,6 +142,15 @@ total and returns a `BudgetTrace` object with `freq`, `psd`, and `asd`
 properties.  The budget sub-traces are available through a dictionary
 (`trace['QuantumVacuum']`) interface and via attributes
 (`trace.QuantumVacumm`).
+
+The budget `freq` and `ifo` attributes can be updated at run time by
+passing them as keyword arguments to the `run()` method:
+```python
+>>> budget = load_budget('aLIGO')
+>>> freq = np.logspace(1, 3, 1000)
+>>> ifo = Struct.from_file('/path/to/ifo_alt.yaml')
+>>> trace = budget.run(freq=freq, ifo=ifo)
+```
 
 
 ## noise functions
@@ -340,12 +358,6 @@ If a budget module defined as a package includes an `ifo.yaml`
 [parameter file](#parameter-files) in the package directory, the
 `load_budget()` function will automatically load the YAML data into an
 `ifo` `gwinc.Struct` and assign it to the `budget.ifo` attribute.
-Alternate ifos can be specified at run time:
-```python
-budget = load_budget('/path/to/MyBudget', freq)
-ifo = Struct.from_file('/path/to/MyBudget.ifo')
-trace = budget.run(ifo=ifo)
-```
 
 The IFOs included in `gwinc.ifo` provide examples of the use of the
 budget interface (e.g. [gwinc.ifo.aLIGO](gwinc/ifo/aLIGO)).

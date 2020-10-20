@@ -3,9 +3,15 @@ import os
 import signal
 import logging
 import argparse
-import numpy as np
 
-from . import IFOS, load_budget, plot_budget, logger
+from . import (
+    IFOS,
+    DEFAULT_FREQ,
+    freq_from_spec,
+    load_budget,
+    plot_budget,
+    logger,
+)
 from . import io
 
 logger.setLevel(os.getenv('LOG_LEVEL', 'WARNING').upper())
@@ -49,10 +55,11 @@ e.g.:
   gwinc --fom range:m1=20,m2=20 ...
 
 See the inspiral_range package documentation for details.
+NOTE: The range will be calculated with the supplied frequency array,
+and may therefore be inaccurate if a restricted array is specified.
 """
 
 IFO = 'aLIGO'
-FREQ = '5:3000:6000'
 FOM = 'range:m1=1.4,m2=1.4'
 
 parser = argparse.ArgumentParser(
@@ -61,7 +68,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument(
     '--freq', '-f', metavar='FLO:[NPOINTS:]FHI',
-    help="logarithmic frequency array specification in Hz [{}]".format(FREQ))
+    help="logarithmic frequency array specification in Hz [{}]".format(DEFAULT_FREQ))
 parser.add_argument(
     '--ifo', '-o', metavar='PARAM=VAL',
     #nargs='+', action='extend',
@@ -97,17 +104,6 @@ parser.add_argument(
     help="IFO name or path")
 
 
-def freq_from_spec(spec):
-    fspec = spec.split(':')
-    if len(fspec) == 2:
-        fspec = fspec[0], FREQ.split(':')[1], fspec[1]
-    return np.logspace(
-        np.log10(float(fspec[0])),
-        np.log10(float(fspec[2])),
-        int(fspec[1]),
-    )
-
-
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
@@ -129,15 +125,12 @@ def main():
         plot_style = trace.plot_style
 
     else:
-        budget = load_budget(args.IFO)
+        try:
+            freq = freq_from_spec(args.freq)
+        except IndexError:
+            parser.exit(2, "Improper frequency specification: {}\n".format(args.freq))
+        budget = load_budget(args.IFO, freq=freq)
         ifo = budget.ifo
-        if args.freq:
-            try:
-                freq = freq_from_spec(args.freq)
-            except IndexError:
-                parser.exit(2, "Improper frequency specification: {}\n".format(args.freq))
-        else:
-            freq = getattr(budget, 'freq', freq_from_spec(FREQ))
         plot_style = getattr(budget, 'plot_style', {})
         trace = None
 
