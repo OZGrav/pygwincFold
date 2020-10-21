@@ -4,6 +4,7 @@
 from __future__ import division
 import numpy as np
 from numpy import pi, sqrt, arctan, sin, cos, exp, log10, conj
+from copy import deepcopy
 
 from .. import logger
 from .. import const
@@ -17,68 +18,41 @@ def sqzOptimalSqueezeAngle(Mifo, eta):
     return alpha
 
 
-def shotrad(f, ifo, mirror_mass, power):
-    """Quantum noise noise strain spectrum
+def getSqzParams(ifo):
+    """Determine squeezer type, if any, and extract common parameters
 
-    :f: frequency array in Hz
-    :ifo: gwinc IFO Struct
-    :power: gwinc power Struct
-
-    :returns: strain noise power spectrum at :f:
-
-    corresponding author: mevans
-    modifications for resonant delay lines: Stefan Ballmer
-
+    Returns a struct with the following attributes:
+    SQZ_DB: squeezing in dB
+    ANTISQZ_DB: anti-squeezing in dB
+    alpha: freq Indep Squeeze angle [rad]
+    lambda_in: loss to squeezing before injection [Power]
+    etaRMS: quadrature noise [rad]
+    eta: homodyne angle [rad]
     """
-    try:
-        sqzType = ifo.Squeezer.Type
-    except AttributeError:
+    params = Struct()
+
+    if 'Squeezer' not in ifo:
         sqzType = None
-
-    #if sqzType == '2mode':
-    #    from .quantum_2mode import shotrad as shotrad_2mode
-    #    return shotrad_2mode(f, ifo)
-
-    #####################################################
-    # Call IFO Quantum Model
-    #####################################################
-
-    if 'Type' not in ifo.Optics:
-        fname = shotradSignalRecycled
     else:
-        namespace = globals()
-        fname = namespace['shotrad' + ifo.Optics.Type]
-    coeff, Mifo, Msig, Mn = fname(f, ifo, mirror_mass, power)
+        sqzType = ifo.Squeezer.get('Type', 'Freq Independent')
 
-    # check for consistent dimensions
-    Nfield = Msig.shape[0]
-    Nfreq = len(f)
-    if any(np.array([Mifo.shape[0], Mifo.shape[1], Mn.shape[0]]) != Nfield) or \
-       any(np.array([Mifo.shape[2], Msig.shape[2], Mn.shape[2]]) != Nfreq):
-        logger.debug(Mifo.shape)
-        logger.debug(Msig.shape)
-        logger.debug(Mn.shape)
-        logger.debug(Nfield, Nfreq)
-        raise Exception('Inconsistent matrix sizes returned by %s' % str(fname))
+    params.sqzType = sqzType
 
-    # deal with non-standard number of fields
-    if Nfield != 2:
-        if Nfield == 4:
-            n = shotrad4(f, ifo, coeff, Mifo, Msig, Mn)
-            return n
-        else:
-            raise Exception("shotrad doesn't know what to do with %d fields" % Nfield)
+    # extract squeezer parameters
+    if sqzType is None:
+        params.SQZ_DB = 0
+        params.ANTISQZ_DB = 0
+        params.alpha = 0
+        params.lambda_in = 0
+        params.etaRMS = 0
 
-    #####################################################
-    # Input Squeezing
-    #####################################################
+    else:
+        params.SQZ_DB = ifo.Squeezer.AmplitudedB
+        params.ANTISQZ_DB = ifo.Squeezer.get('AntiAmplitudedB', params.SQZ_DB)
+        params.alpha = ifo.Squeezer.SQZAngle
+        params.lambda_in = ifo.Squeezer.InjectionLoss
+        params.etaRMS = ifo.Squeezer.get('LOAngleRMS', 0)
 
-    # ------------------------------------------- equation 63 BnC PRD 2004
-    #>>>>>>>>    QUANTUM NOISE POWER SPECTRAL DENSITY WITH SQZ [BnC PRD 2004, 62]
-    #<<<<<<<<<<<<<<<<< Modified to include losses (KM)
-    #<<<<<<<<<<<<<<<<< Modified to include frequency dependent squeezing angle (LB)
-    # useful numbers
-    #TODO, adjust Struct to allow deep defaulted access
     # Homodyne Readout phase
     eta_orig = ifo.Optics.get('Quadrature', Struct()).get('dc', None)
 
@@ -87,10 +61,14 @@ def shotrad(f, ifo, mirror_mass, power):
         eta = eta_orig
         if eta_orig is None:
             raise Exception("must add Quadrature.dc or Readout...")
+
     elif ifoRead.Type == 'DC':
-        eta = np.sign(ifoRead.fringe_side) * np.arccos((ifoRead.defect_PWR_W / ifoRead.readout_PWR_W)**.5)
+        eta = np.sign(ifoRead.fringe_side) * \
+            np.arccos((ifoRead.defect_PWR_W / ifoRead.readout_PWR_W)**.5)
+
     elif ifoRead.Type == 'Homodyne':
         eta = ifoRead.Angle
+
     else:
         raise Exception("Unknown Readout Type")
 
@@ -102,162 +80,110 @@ def shotrad(f, ifo, mirror_mass, power):
         if eta_orig != eta:
             raise Exception("Quadrature.dc inconsistent with Readout eta")
 
-    lambda_PD = 1 - ifo.Optics.PhotoDetectorEfficiency  # PD losses
+    params.eta = eta
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # determine squeezer type, if any
-    # and extract common parameters
-    if 'Squeezer' not in ifo:
-        sqzType = 'None'
+    return params
+
+
+######################################################################
+# Main quantum noise function
+######################################################################
+
+
+def shotrad(f, ifo, mirror_mass, power):
+    """Quantum noise strain spectrum
+
+    :f: frequency array in Hz
+    :ifo: gwinc IFO Struct
+    :mirror_mass: mirror mass in kg
+    :power: gwinc power Struct
+
+    :returns: displacement noise power spectrum at :f:
+
+    corresponding author: mevans
+
+    """
+    ######################################################################
+    # Vacuum sources will be individually tracked with the Mnoise dict   #
+    # The keys are the following                                         #
+    #   * arm: arm cavity losses                                         #
+    #   * SEC: SEC losses                                                #
+    #   * ASvac: AS port vacuum                                          #
+    #   * pd: readout losses                                             #
+    #   * injection: injection losses                                    #
+    #   * phase: quadrature phase noise                                  #
+    #                                                                    #
+    # If there is a filter cavity there are an additional set of keys    #
+    # starting with 'FC' for the filter cavity losses                    #
+    #                                                                    #
+    # If there is an output filter cavity the key 'OFC' gives its losses #
+    ######################################################################
+
+    # call the main IFO Quantum Model
+    if 'Type' not in ifo.Optics:
+        fname = shotradSignalRecycled
     else:
-        sqzType = ifo.Squeezer.get('Type', 'Freq Independent')
+        namespace = globals()
+        fname = namespace['shotrad' + ifo.Optics.Type]
+    coeff, Mifo, Msig, Mn = fname(f, ifo, mirror_mass, power)
 
-    # extract common parameters
-    if sqzType == 'None':
-        SQZ_DB = 0                               # Squeeing in dB
-        alpha = 0                                # Squeeze angle
-        lambda_in = 0                            # Loss to squeezing before injection [Power]
-        ANTISQZ_DB = 0                           # Anti squeezing in db
-        etaRMS = 0
-    else:
-        SQZ_DB = ifo.Squeezer.AmplitudedB        # Squeeing in dB
-        lambda_in = ifo.Squeezer.InjectionLoss   # Loss to squeezing before injection [Power]
-        alpha = ifo.Squeezer.SQZAngle            # Freq Indep Squeeze angle
-        ANTISQZ_DB = ifo.Squeezer.get('AntiAmplitudedB', SQZ_DB)  # Anti squeezing in db
-        etaRMS = ifo.Squeezer.get('LOAngleRMS', 0)  # quadrature noise
+    # separate arm and SEC loss
+    Mnoise = dict(arm=Mn[:, :2, :], SEC=Mn[:, 2:, :])
 
-    # switch on squeezing type for other input squeezing modifications
-    if sqzType == 'None':
-        pass
+    sqz_params = getSqzParams(ifo)
 
-    elif sqzType == 'Freq Independent':
-        logger.debug('You are injecting %g dB of frequency independent squeezing' % SQZ_DB)
-
-    elif sqzType == 'Optimal':
+    if sqz_params.sqzType == 'Optimal':
         # compute optimal squeezing angle
-        alpha = sqzOptimalSqueezeAngle(Mifo, eta)
+        sqz_params.alpha = sqzOptimalSqueezeAngle(Mifo, sqz_params.eta)
 
-        logger.debug('You are injecting %g dB of squeezing with optimal frequency dependent squeezing angle' % SQZ_DB)
+    vHD = np.array([[sin(sqz_params.eta), cos(sqz_params.eta)]])
+    def homodyne(signal):
+        """Readout the eta quadrature of the signal signal
+        """
+        return np.squeeze(np.sum(abs(getProdTF(vHD, signal))**2, axis=1))
 
-    elif sqzType == 'OptimalOptimal':
-        # compute optimal squeezing angle, assuming optimal readout phase
-        R = SQZ_DB / (20 * log10(exp(1)))
-        MnPD = sqzInjectionLoss(Mn, lambda_PD)
-        MsigPD = Msig * sqrt(1 - lambda_PD)
-        alpha = sqzOptimalSqueezeAngle(Mifo, [], [R, lambda_in], MsigPD, MnPD)
-
-        logger.debug('You are injecting %g dB of squeezing with optimal FD squeezing angle, for optimal readout phase' % SQZ_DB)
-
-    elif sqzType == 'Freq Dependent':
-        logger.debug('You are injecting %g dB of squeezing with frequency dependent squeezing angle' % SQZ_DB)
-
-    else:
-        raise Exception('ifo.Squeezer.Type must be None, Freq Independent, Optimal, or Frequency Dependent, not "%s"' % sqzType)
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Define input matrix of Squeezing
-    R = SQZ_DB / (20 * log10(exp(1)))                 # Squeeze factor
-    R_anti = ANTISQZ_DB / (20 * log10(exp(1)))        # Squeeze factor
-    Msqz = np.array([[exp(-R), 0], [0, exp(R_anti)]])
-
-    # expand to Nfreq
-    Msqz = np.transpose(np.tile(Msqz, (Nfreq,1,1)), axes=(1,2,0))
-
-    # add input rotation
-    MsqzRot = make2x2TF(cos(alpha), -sin(alpha), sin(alpha), cos(alpha))
-    Msqz = getProdTF(MsqzRot, Msqz)
-
-    # cheat to test optimal squeezing agle code
-    #   if strcmp(sqzType, 'Optimal') || strcmp(sqzType, 'OptimalOptimal')
-    #     Msqz = [exp(-R) 0; 0 exp(-R)];
-    #   end
-
-    # Include losses (lambda_in=ifo.Squeezer.InjectionLoss)
-    Msqz = sqzInjectionLoss(Msqz, lambda_in)
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Inject squeezed field into the IFO via some filter cavities
-    if sqzType == 'Freq Dependent' and 'FilterCavity' in ifo.Squeezer:
-        logger.debug('  Applying %d input filter cavities' % np.atleast_1d(ifo.Squeezer.FilterCavity).size)
-        Mr, Msqz = sqzFilterCavityChain(f, np.atleast_1d(ifo.Squeezer.FilterCavity), Msqz)
-
-    #####################################################
-    # IFO Transfer and Output Filter Cavities
-    #####################################################
-
-    # apply the IFO dependent squeezing matrix to get the total noise
-    # due to quantum fluctuations coming in from the AS port
-    Msqz = getProdTF(Mifo, Msqz)
-
-    # add this to the other noises Mn
-    Mnoise = np.hstack((Msqz, Mn))
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # pass IFO output through some filter cavities
-    if 'OutputFilter' in ifo:
-        if ifo.OutputFilter.Type == 'None':
-            # do nothing, say nothing
-            pass
-
-        elif ifo.OutputFilter.Type == 'Chain':
-            logger.debug('  Applying %d output filter cavities' % np.atleast_1d(ifo.OutputFilter.FilterCavity).size)
-
-            Mr, Mnoise = sqzFilterCavityChain(f, np.atleast_1d(ifo.OutputFilter.FilterCavity), Mnoise)
-            Msig = getProdTF(Mr, Msig)
-            #  Mnoise = getProdTF(Mn, Mnoise);
-
-        elif ifo.OutputFilter.Type == 'Optimal':
-            logger.debug('  Optimal output filtering!')
-
-            # compute optimal angle, including upcoming PD losses
-            MnPD = sqzInjectionLoss(Mnoise, lambda_PD)
-            raise NotImplementedError("Cannot do optimal phase yet")
-            zeta = sqzOptimalReadoutPhase(Msig, MnPD)
-
-            # rotate by that angle, less the homodyne angle
-            #zeta_opt = eta;
-            cs = cos(zeta - eta)
-            sn = sin(zeta - eta)
-            Mrot = make2x2TF(cs, -sn, sn, cs)
-            Mnoise = getProdTF(Mrot, Mnoise)
-            Msig = getProdTF(Mrot, Msig)
-
-        else:
-            raise Exception('ifo.OutputFilter.Type must be None, Chain or Optimal, not "%s"' % ifo.OutputFilter.Type)
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # add PD efficiency
-    Mnoise = sqzInjectionLoss(Mnoise, lambda_PD)
+    # optomechanical plant
+    lambda_PD = 1 - ifo.Optics.PhotoDetectorEfficiency  # PD losses
     Msig = Msig * sqrt(1 - lambda_PD)
+    plant = homodyne(Msig)
 
-    # and compute the final noise
-    def HDnoise(eta):
-        vHD = np.array([[sin(eta), cos(eta)]])
-        n = coeff * np.squeeze(np.sum(abs(getProdTF(vHD, Mnoise))**2, axis=1)) / \
-            np.squeeze(np.sum(abs(getProdTF(vHD, Msig))**2, axis=1))
-        return n
+    # get all the losses in the squeezed quadrature
+    Mnoise = propagate_noise_fc_ifo(
+        f, ifo, Mifo, Mnoise, sqz_params, sqz_params.alpha)
 
-    if etaRMS <= 0:
-        n = HDnoise(eta)
+    # add quadrature phase fluctuations if any
+    if sqz_params.etaRMS:
+        # get all losses in the anti-squeezed quadrature
+        Mnoise_antisqz = propagate_noise_fc_ifo(
+            f, ifo, Mifo, Mnoise, sqz_params, sqz_params.alpha + pi/2)
+
+        # sum over these since they're not individually tracked
+        var_antisqz = np.zeros_like(f)
+        for nn in Mnoise_antisqz.values():
+            var_antisqz += homodyne(nn)
+
+        # The total variance is
+        # V(alpha) * cos(etaRMS)^2 + V(alpha + pi/2) * sin(etaRMS)^2
+        Mnoise = {key: cos(sqz_params.etaRMS)**2 * homodyne(nn)
+                  for key, nn in Mnoise.items()}
+        Mnoise['phase'] = sin(sqz_params.etaRMS)**2 * var_antisqz
+
     else:
-        # include quadrature noise (average of +- the RMS)
-        n = (HDnoise(eta+etaRMS) + HDnoise(eta-etaRMS)) / 2
+        Mnoise = {key: homodyne(nn) for key, nn in Mnoise.items()}
 
-    # the above is the same as
-    #    n = coeff * (vHD * Msqz * Msqz' * vHD') / (vHD * Msig * Msig' * vHD')
-    #  where ' is the conjugate transpose operation.  Which is also
-    #    n = coeff * sym(vHD * Msqz) / sym(vHD * Msig)
-    #  where is the symmeterization operation
-    #    sym(M) = real(M * M')
-    #
-    # it is also the same as taking the sum of the squared directly
-    #   n = np.zeros(1, numel(f));
-    #   for k = 1:numel(f)
-    #     n(k) = coeff(k) * np.sum(abs((vHD * Msqz(:,:,k))).^2) ./ ...
-    #       np.sum(abs((vHD * Msig(:,:,k))).^2);
-    #   end
+    # calibrate into displacement
+    # coeff can be removed if shotradSignalRecycledBnC isn't used
+    Mnoise = {key: coeff*nn/plant for key, nn in Mnoise.items()}
+    psd = {key: nn * ifo.Infrastructure.Length**2 for key, nn in Mnoise.items()}
 
-    return n * ifo.Infrastructure.Length**2
+    return psd
+
+
+######################################################################
+# The following two compile functions generate analytic expressions
+# that are hard coded in shotradSignalRecycled and are not called
+# when shotrad is called
+######################################################################
 
 
 def compile_ARM_RES_TF():
@@ -290,6 +216,10 @@ def compile_SEC_RES_TF():
         print(str(expr[0]), '=', str(expr[1]))
     print('RES', '=', str(SEC_RES_expr[0]).replace('Matrix', 'np.array'))
 
+
+######################################################################
+# Main IFO quantum models
+######################################################################
 
 def shotradSignalRecycled(f, ifo, mirror_mass, power):
     """Quantum noise model for signal recycled IFO (see shotrad for more info)
@@ -609,6 +539,103 @@ def shotradSignalRecycledBnC(f, ifo, mirror_mass, power):
     return coeff, Mifo, Msig, Mnoise
 
 
+def propagate_noise_fc_ifo(f, ifo, Mifo, Mnoise, sqz_params, alpha):
+    """Propagate quantum noise through the filter cavities and IFO
+
+    f: frequency vector [Hz]
+    ifo: ifo Struct
+    Mifo: IFO input-output relation for the AS port
+    Mnoise: dictionary of existing noise sources
+    sqz_params: Struct of squeeze parameters
+    alpha: squeeze quadrature
+
+    Returns a new Mnoise dict with the noises due to AS port vacuum, injection
+    loss, and any input or output filter cavities added.
+    """
+    Mnoise = deepcopy(Mnoise)
+
+    #>>>>>>>>    QUANTUM NOISE POWER SPECTRAL DENSITY WITH SQZ [BnC PRD 2004, 62]
+    #<<<<<<<<<<<<<<<<< Modified to include losses (KM)
+    #<<<<<<<<<<<<<<<<< Modified to include frequency dependent squeezing angle (LB)
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # ------------------------------------------- equation 63 BnC PRD 2004
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Define input matrix of Squeezing
+    R = sqz_params.SQZ_DB / (20 * log10(exp(1)))           # squeeze factor
+    R_anti = sqz_params.ANTISQZ_DB / (20 * log10(exp(1)))  # anti-squeeze factor
+    Msqz = np.array([[exp(-R), 0], [0, exp(R_anti)]])
+
+    # expand to Nfreq
+    Msqz = np.transpose(np.tile(Msqz, (len(f), 1, 1)), axes=(1, 2, 0))
+
+    # add input rotation
+    MsqzRot = make2x2TF(cos(alpha), -sin(alpha), sin(alpha), cos(alpha))
+    Msqz = getProdTF(MsqzRot, Msqz)
+    Msqz = dict(ASvac=Msqz)
+
+    # Include losses (lambda_in=ifo.Squeezer.InjectionLoss)
+    Msqz = sqzInjectionLoss(Msqz, sqz_params.lambda_in, 'injection')
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Inject squeezed field into the IFO via some filter cavities
+    if sqz_params.sqzType == 'Freq Dependent' and 'FilterCavity' in ifo.Squeezer:
+        logger.debug('  Applying %d input filter cavities' % np.atleast_1d(ifo.Squeezer.FilterCavity).size)
+        Mr, Msqz = sqzFilterCavityChain(
+            f, np.atleast_1d(ifo.Squeezer.FilterCavity), Msqz)
+
+    # apply the IFO dependent squeezing matrix to get the total noise
+    # due to quantum fluctuations coming in from the AS port
+    Msqz = {key: getProdTF(Mifo, nn) for key, nn in Msqz.items()}
+
+    # add this to the other noises
+    Mnoise.update(Msqz)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # pass IFO output through some filter cavities
+    if 'OutputFilter' in ifo:
+        if ifo.OutputFilter.Type == 'None':
+            # do nothing, say nothing
+            pass
+
+        elif ifo.OutputFilter.Type == 'Chain':
+            logger.debug('  Applying %d output filter cavities' % np.atleast_1d(ifo.OutputFilter.FilterCavity).size)
+
+            Mr, Mnoise = sqzFilterCavityChain(
+                f, np.atleast_1d(ifo.OutputFilter.FilterCavity), Mnoise, key='OFC')
+            Msig = getProdTF(Mr, Msig)
+            #  Mnoise = getProdTF(Mn, Mnoise);
+
+        elif ifo.OutputFilter.Type == 'Optimal':
+            raise NotImplementedError("Cannot do optimal phase yet")
+            logger.debug('  Optimal output filtering!')
+
+            # compute optimal angle, including upcoming PD losses
+            MnPD = sqzInjectionLoss(Mnoise, lambda_PD)
+            zeta = sqzOptimalReadoutPhase(Msig, MnPD)
+
+            # rotate by that angle, less the homodyne angle
+            #zeta_opt = eta;
+            cs = cos(zeta - eta)
+            sn = sin(zeta - eta)
+            Mrot = make2x2TF(cs, -sn, sn, cs)
+            Mnoise = getProdTF(Mrot, Mnoise)
+            Msig = getProdTF(Mrot, Msig)
+
+        else:
+            raise Exception('ifo.OutputFilter.Type must be None, Chain or Optimal, not "%s"' % ifo.OutputFilter.Type)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # add PD efficiency
+    lambda_PD = 1 - ifo.Optics.PhotoDetectorEfficiency  # PD losses
+    Mnoise = sqzInjectionLoss(Mnoise, lambda_PD, 'pd')
+
+    return Mnoise
+
+
+######################################################################
+# Auxiliary functions
+######################################################################
+
 def make2x2TF(A11, A12, A21, A22):
     """Create transfer matrix with 2x2xnF.
 
@@ -653,20 +680,34 @@ def getProdTF(lhs, rhs):
     return rslt
 
 
-def sqzInjectionLoss(Min, L):
+def sqzInjectionLoss(Min, L, key):
     """Injection losses for squeezed field
 
-    lambda_in is defined as ifo.Squeezer.InjectionLoss
+    Calculates noise where unsqueezed vacuum is injected at a source of loss
+    and adds this to a dictionary of existing noise sources
 
+    Min = dictionary of existing sources
+    L = the loss
+    key = key for the new noise source
+    Mout = updated dictionary with the original noises reduced by sqrt(1 - L)
+           and a new item for the new noise source
     """
-    eye2 = np.eye(Min.shape[0], Min.shape[1])
-    Meye = np.transpose(np.tile(eye2, (Min.shape[2],1,1)), axes=(1,2,0))
+    # number of existing noise fields
+    num_noise_fld = sum([nn.shape[1] for nn in Min.values()])
+    # number of frequency points
+    npts = Min[list(Min.keys())[0]].shape[2]
+    # each of the existing noise sources should be reduced by sqrt(1 - L)
+    Mout = {nkey: nn * sqrt(1 - L) for nkey, nn in Min.items()}
 
-    Mout = np.hstack((Min * sqrt(1 - L), Meye * sqrt(L)))
+    # add new noise fields
+    eye2 = np.eye(2, num_noise_fld)
+    Meye = np.transpose(np.tile(eye2, (npts, 1, 1)), axes=(1, 2, 0))
+    Mout[key] = Meye * sqrt(L)
+
     return Mout
 
 
-def sqzFilterCavityChain(f, params, Mn):
+def sqzFilterCavityChain(f, params, Mn, key='FC'):
     """Transfer relation for a chain of filter cavities
 
     Noise added by cavity losses are also output.
@@ -683,6 +724,7 @@ def sqzFilterCavityChain(f, params, Mn):
     Mn0 = input noise
     Mc = input to output transfer
     Mn = filtered input noise, plus noise due to cavity losses
+    key = key to use for new entries to the noise dictionary
 
     Note:
         [Mc, Mn] = sqzFilterCavityChain(f, params, Mn0)
@@ -707,11 +749,12 @@ def sqzFilterCavityChain(f, params, Mn):
         theta = params[k].Rot
 
         # compute new Mn
-        Mr, Mt, Mn = sqzFilterCavity(f, Lf, Ti, Te, Lrt, fdetune, Mn)
+        fc_key = key + str(k)
+        Mr, Mt, Mn = sqzFilterCavity(f, Lf, Ti, Te, Lrt, fdetune, Mn, key=fc_key)
 
         # apply phase rotation after filter cavity
         Mrot = np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
-        Mn = getProdTF(Mrot, Mn)
+        Mn = {key: getProdTF(Mrot, nn) for key, nn in Mn.items()}
 
         # update Mc
         Mc = getProdTF(Mrot, getProdTF(Mr, Mc))
@@ -719,7 +762,7 @@ def sqzFilterCavityChain(f, params, Mn):
     return Mc, Mn
 
 
-def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1):
+def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1, key='FC'):
     """Reflection/transmission matrix for filter cavity
 
     Function which gives the reflection matrix for vacuum fluctuations
@@ -744,6 +787,9 @@ def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1):
          with MinR, this argument can be omitted or set to 1 to indicate
          and unsqueezed input. [] can be used to avoid adding a noise
          term to Mnoise.
+    key: key to use for new entries to the noise dictionary
+         the losses from the filter cavity are key and the additional losses
+         injected from the back mirror are key_unsqzd_back
 
     corresponding authors: LisaB, mevans
 
@@ -794,7 +840,7 @@ def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1):
     # Transmission matrix for vacuum fluctuations entering from the end mirror
     Mt_temp = make2x2TF(t_p, 0, 0, conj(t_m))
 
-    # Transmission matrix for vacuum fluctuations entering from the end mirror
+    # Transmission matrix for vacuum fluctuations entering from the cavity losses
     Ml_temp = make2x2TF(l_p, 0, 0, conj(l_m))
 
     # Apply matrix which changes from two-photon basis to a+ and (a-)*
@@ -807,23 +853,30 @@ def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1):
     ###### output
 
     # reflected fields
-    if MinR == []:
-        Mnoise = np.zeros((2, 0, f.size))
-    else:
-        if np.isscalar(MinR):
-            Mnoise = Mr * MinR
+    Mnoise = {}
+    for nkey, nn in MinR.items():
+        if np.isscalar(nn):
+            Mnoise[nkey] = Mr * nn
         else:
-            Mnoise = getProdTF(Mr, MinR)
+            Mnoise[nkey] = getProdTF(Mr, nn)
 
     # transmitted fields
-    if MinT != [] and Te > 0:
+    if MinT != {} and Te > 0:
         if np.isscalar(MinT) and MinT == 1:
-            Mnoise = np.hstack((Mnoise, Mt))
+            # inject unsqueezed vacuum at the back
+            Mnoise[key + '_unsqzd_back'] = Mt
         else:
-            Mnoise = np.hstack((Mnoise, getProdTF(Mt, MinT)))
+            # inject a given noise at the back
+            for nkey, nn in MinT.items():
+                if np.isscalar(nn):
+                    Mnoise[nkey] = Mt * nn
+                else:
+                    Mnoise[nkey] = getProdTF(Mt, nn)
+    elif MinT != {} and Te == 0:
+        Mnoise[key + '_unsqzd_back'] = np.zeros_like(Mt)
 
     # loss fields
     if Lrt > 0:
-        Mnoise = np.hstack((Mnoise, Ml))
+        Mnoise[key] = Ml
 
     return Mr, Mt, Mnoise

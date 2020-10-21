@@ -9,7 +9,10 @@ from .. import nb
 from .. import noise
 from .. import suspension
 
-##################################################
+
+############################################################
+# helper functions
+############################################################
 
 
 def mirror_struct(ifo, tm):
@@ -164,14 +167,80 @@ def precomp_suspension(f, ifo):
     return pc
 
 
-##################################################
+
+def precomp_quantum(f, ifo):
+    pc = Struct()
+    mirror_mass = mirror_struct(ifo, 'ETM').MirrorMass
+    power = ifo_power(ifo)
+    noise_dict = noise.quantum.shotrad(f, ifo, mirror_mass, power)
+    pc.ASvac = noise_dict['ASvac']
+    pc.SEC = noise_dict['SEC']
+    pc.Arm = noise_dict['arm']
+    pc.Injection = noise_dict['injection']
+    pc.PD = noise_dict['pd']
+
+    # FC0 are the noises from the filter cavity losses and FC0_unsqzd_back
+    # are noises from the unsqueezed vacuum injected at the back mirror
+    # Right now there are at most one filter cavity in all the models;
+    # if there were two, there would also be FC1 and FC1_unsqzd_back, etc.
+    # keys = list(noise_dict.keys())
+    fc_keys = [key for key in noise_dict.keys() if 'FC' in key]
+    if fc_keys:
+        pc.FC = np.zeros_like(pc.ASvac)
+        for key in fc_keys:
+            pc.FC += noise_dict[key]
+
+    if 'phase' in noise_dict.keys():
+        pc.Phase = noise_dict['phase']
+
+    if 'ofc' in noise_dict.keys():
+        pc.OFC = noise_dict['OFC']
+
+    return pc
+
+
+############################################################
+# calibration
+############################################################
+
+def dhdl(f, armlen):
+    """Strain to length conversion for noise power spetra
+
+    This takes into account the GW wavelength and is only important
+    when this is comparable to the detector arm length.
+
+    From R. Schilling, CQG 14 (1997) 1513-1519, equation 5,
+    with n = 1, nu = 0.05, ignoring overall phase and cos(nu)^2.
+    A small value of nu is used instead of zero to avoid infinities.
+
+    Returns the square of the dh/dL function, and the same divided by
+    the arm length squared.
+
+    """
+    c = const.c
+    nu_small = 15*pi/180
+    omega_arm = pi * f * armlen / c
+    omega_arm_f = (1 - sin(nu_small)) * pi * f * armlen / c
+    omega_arm_b = (1 + sin(nu_small)) * pi * f * armlen / c
+    sinc_sqr = 4 / abs(sin(omega_arm_f) * exp(-1j * omega_arm) / omega_arm_f
+                       + sin(omega_arm_b) * exp(1j * omega_arm) / omega_arm_b)**2
+    dhdl_sqr = sinc_sqr / armlen**2
+    return dhdl_sqr, sinc_sqr
+
 
 class Strain(nb.Calibration):
     def calc(self):
         dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
         return dhdl_sqr
 
-##################################################
+
+############################################################
+# noise sources
+############################################################
+
+#########################
+# quantum
+#########################
 
 class QuantumVacuum(nb.Noise):
     """Quantum Vacuum
@@ -182,10 +251,109 @@ class QuantumVacuum(nb.Noise):
         color='#ad03de',
     )
 
-    def calc(self):
-        ETM = mirror_struct(self.ifo, 'ETM')
-        power = ifo_power(self.ifo)
-        return noise.quantum.shotrad(self.freq, self.ifo, ETM.MirrorMass, power)
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        total = np.zeros_like(quantum.ASvac)
+        for nn in quantum.values():
+            total += nn
+        return total
+
+
+class QuantumVacuumAS(nb.Noise):
+    """Quantum vacuum from the AS port
+
+    """
+    style = dict(
+        label='AS Port Vacuum',
+        color='xkcd:emerald green'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.ASvac
+
+
+class QuantumVacuumArm(nb.Noise):
+    """Quantum vacuum due to arm cavity loss
+
+    """
+    style = dict(
+        label='Arm Loss',
+        color='xkcd:orange brown'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.Arm
+
+
+class QuantumVacuumSEC(nb.Noise):
+    """Quantum vacuum due to SEC loss
+
+    """
+    style = dict(
+        label='SEC Loss',
+        color='xkcd:cerulean'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.SEC
+
+
+class QuantumVacuumFilterCavity(nb.Noise):
+    """Quantum vacuum due to filter cavity loss
+
+    """
+    style = dict(
+        label='Filter Cavity Loss',
+        color='xkcd:goldenrod'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.FC
+
+
+class QuantumVacuumInjection(nb.Noise):
+    """Quantum vacuum due to injection loss
+
+    """
+    style = dict(
+        label='Injection Loss',
+        color='xkcd:fuchsia'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.Injection
+
+
+class QuantumVacuumReadout(nb.Noise):
+    """Quantum vacuum due to readout loss
+
+    """
+    style = dict(
+        label='Readout Loss',
+        color='xkcd:mahogany'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.PD
+
+
+class QuantumVacuumQuadraturePhase(nb.Noise):
+    """Quantum vacuum noise due to quadrature phase noise
+    """
+    style = dict(
+        label='Quadrature Phase',
+        color='xkcd:slate'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.Phase
 
 
 class StandardQuantumLimit(nb.Noise):
@@ -202,6 +370,9 @@ class StandardQuantumLimit(nb.Noise):
         ETM = mirror_struct(self.ifo, 'ETM')
         return 8 * const.hbar / (ETM.MirrorMass * (2 * np.pi * self.freq) ** 2)
 
+#########################
+# seismic
+#########################
 
 class Seismic(nb.Noise):
     """Seismic
@@ -227,6 +398,10 @@ class Seismic(nb.Noise):
             self.ifo.Suspension, sustf, nt)
         return n * 4
 
+
+#########################
+# Newtonian
+#########################
 
 class Newtonian(nb.Noise):
     """Newtonian Gravity
@@ -285,6 +460,10 @@ class NewtonianInfrasound(nb.Noise):
         return n * 2
 
 
+#########################
+# suspension thermal
+#########################
+
 class SuspensionThermal(nb.Noise):
     """Suspension Thermal
 
@@ -300,6 +479,10 @@ class SuspensionThermal(nb.Noise):
             self.freq, self.ifo.Suspension, sustf)
         return n * 4
 
+
+#########################
+# coating thermal
+#########################
 
 class CoatingBrownian(nb.Noise):
     """Coating Brownian
@@ -348,6 +531,10 @@ class CoatingThermoOptic(nb.Noise):
         )
         return (nITM + nETM) * 2
 
+
+#########################
+# substrate thermal
+#########################
 
 class ITMThermoRefractive(nb.Noise):
     """ITM Thermo-Refractive
@@ -404,6 +591,11 @@ class SubstrateThermoElastic(nb.Noise):
         nETM = noise.substratethermal.substrate_thermoelastic(
             self.freq, self.ifo.Materials, cavity.wBeam_ETM)
         return (nITM + nETM) * 2
+
+
+#########################
+# residual gas
+#########################
 
 
 class ExcessGas(nb.Noise):
