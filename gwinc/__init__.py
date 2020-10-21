@@ -8,12 +8,12 @@ import numpy as np
 try:
     from ._version import version as __version__
 except ModuleNotFoundError:
-    import setuptools_scm
     try:
+        import setuptools_scm
         __version__ = setuptools_scm.get_version(fallback_version='?.?.?')
     # FIXME: fallback_version is not available in the buster version
     # (3.2.0-1)
-    except TypeError:
+    except (ModuleNotFoundError, TypeError):
         __version__ = '?.?.?'
 from .ifo import IFOS
 from .struct import Struct
