@@ -5,6 +5,7 @@ import logging
 import argparse
 
 from . import (
+    __version__,
     IFOS,
     DEFAULT_FREQ,
     freq_from_spec,
@@ -66,6 +67,8 @@ parser = argparse.ArgumentParser(
     prog='gwinc',
     description=description,
     formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument(
+    '--version', '-v', action='version', version=__version__)
 parser.add_argument(
     '--freq', '-f', metavar='FLO:[NPOINTS:]FHI',
     help="logarithmic frequency array specification in Hz [{}]".format(DEFAULT_FREQ))

@@ -5,6 +5,11 @@ import logging
 import importlib
 import numpy as np
 
+try:
+    from ._version import __version__
+except ModuleNotFoundError:
+    import setuptools_scm
+    __version__ = setuptools_scm.get_version()
 from .ifo import IFOS
 from .struct import Struct
 from .plot import plot_budget
