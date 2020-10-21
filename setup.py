@@ -16,7 +16,6 @@ setup(
     ],
     use_scm_version={
         'write_to': 'gwinc/_version.py',
-        'write_to_template': '__version__ = "{version}"',
     }
     # version=versioneer.get_version(),
     # cmdclass=versioneer.get_cmdclass(),

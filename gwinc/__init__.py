@@ -6,7 +6,7 @@ import importlib
 import numpy as np
 
 try:
-    from ._version import __version__
+    from ._version import version as __version__
 except ModuleNotFoundError:
     import setuptools_scm
     __version__ = setuptools_scm.get_version(fallback_version='?.?.?')
