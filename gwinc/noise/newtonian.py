@@ -5,6 +5,7 @@ from __future__ import division
 import numpy as np
 from numpy import pi, sqrt, exp, log10
 import scipy.integrate as scint
+import scipy.special as sp
 
 from .seismic import seismic_ground_NLNM
 from .. import const
@@ -126,11 +127,14 @@ def gravg_rayleigh(f, seismic):
     return n
 
 
-def gravg_pwave(f, seismic):
+def gravg_pwave(f, seismic, exact=False):
     """Gravity gradient noise for single test mass from seismic p-waves
 
     :f: frequency array in Hz
     :seismic: gwinc Seismic structure
+    :exact: whether to use a slower numerical integral good to higher frequencies
+            or faster special functions. If exact=False, nan is returned at
+            high frequencies where the special functions have numerical errors.
 
     :returns: displacement noise power spectrum at :f:, in meters
 
@@ -151,26 +155,49 @@ def gravg_pwave(f, seismic):
     if tmheight >= 0:
         # Surface facility
         # The P-S conversion at the surface is not implemented
-        height_supp_power = (3 / 2) * np.array([scint.quad(lambda th, x: np.sin(th)**3
-                * np.exp(-2 * x * np.sin(th)), 0, pi / 2, args=(x,))[0]
-                for x in xP])
+        if exact:
+            height_supp_power = (3 / 2) * np.array(
+                [scint.quad(lambda th, x: np.sin(th)**3
+                            * np.exp(-2 * x * np.sin(th)), 0, pi / 2, args=(x,))[0]
+                 for x in xP])
+
+        else:
+            xP[xP > 10] = np.nan
+            height_supp_power = 3 / (24*xP) * (
+                8*xP - 9*pi*sp.iv(2, 2*xP) - 6*pi*xP*sp.iv(3, 2*xP)
+                + 6*pi*xP*sp.modstruve(1, 2*xP) - 3*pi*sp.modstruve(2, 2*xP))
+
     else:
         # Underground facility
         # The cavity effect is not included
-        height_supp_power = (3 / 4) * np.array([scint.quad(lambda th, x: np.sin(th)**3
-                * (2 - np.exp(-x * np.sin(th)))**2, 0, pi, args=(x,))[0]
-                for x in xP])
+        if exact:
+            height_supp_power = (3 / 4) * np.array(
+                [scint.quad(lambda th, x: np.sin(th)**3
+                            * (2 - np.exp(-x * np.sin(th)))**2, 0, pi, args=(x,))[0]
+                 for x in xP])
+
+        else:
+            xP[xP > 2] = np.nan
+            height_supp_power = 1 + 3*pi/(8*xP) * (
+                24*sp.iv(2, xP) - 3*sp.iv(2, 2*xP) + 8*xP*sp.iv(3, xP)
+                - 2*xP*sp.iv(3, 2*xP) - 8*xP*sp.modstruve(1, xP)
+                + 2*xP*sp.modstruve(1, 2*xP) - 8*sp.modstruve(2, xP)
+                + sp.modstruve(2, 2*xP))
+
     psd_gravg_pwave = ((2 * pi * const.G * rho_ground)**2
             * psd_ground_pwave * height_supp_power)
     psd_gravg_pwave /= (2 * pi * f)**4
     return psd_gravg_pwave
 
 
-def gravg_swave(f, seismic):
+def gravg_swave(f, seismic, exact=False):
     """Gravity gradient noise for single test mass from seismic s-waves
 
     :f: frequency array in Hz
     :seismic: gwinc Seismic structure
+    :exact: whether to use a slower numerical integral good to higher frequencies
+            or faster special functions. If exact=False, nan is returned at
+            high frequencies where the special functions have numerical errors.
 
     :returns: displacement noise power spectrum at :f:, in meters
 
@@ -189,9 +216,18 @@ def gravg_swave(f, seismic):
     xS = np.abs(kS * tmheight)
 
     # For both surface and underground facilities
-    height_supp_power = (3 / 2) * np.array([scint.quad(lambda th, x: np.sin(th)**3
-            * np.exp(-2 * x * np.sin(th)), 0, pi / 2, args=(x,))[0]
-            for x in xS])
+    if exact:
+        height_supp_power = (3 / 2) * np.array(
+            [scint.quad(lambda th, x: np.sin(th)**3
+                        * np.exp(-2 * x * np.sin(th)), 0, pi / 2, args=(x,))[0]
+             for x in xS])
+
+    else:
+        xS[xS > 10] = np.nan
+        height_supp_power = 3 / (24*xS) * (
+            8*xS - 9*pi*sp.iv(2, 2*xS) - 6*pi*xS*sp.iv(3, 2*xS)
+            + 6*pi*xS*sp.modstruve(1, 2*xS) - 3*pi*sp.modstruve(2, 2*xS))
+
     psd_gravg_swave = ((2 * pi * const.G * rho_ground)**2
             * psd_ground_swave * height_supp_power)
     psd_gravg_swave /= (2 * pi * f)**4
