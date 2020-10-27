@@ -234,13 +234,11 @@ def main():
 
     if args.title:
         plot_style['title'] = args.title
-    elif 'title' in plot_style:
-        pass
-    elif budget:
-        plot_style['title'] = "GWINC Noise Budget: {}".format(budget.name)
     else:
-        plot_style['title'] = "GWINC Noise Budget: {}".format(args.IFO)
-
+        plot_style['title'] = plot_style.get(
+            'title',
+            "GWINC Noise Budget: {}".format(args.IFO),
+        )
     if args.fom:
         logger.info("calculating inspiral {}...".format(range_func))
         H = inspiral_range.CBCWaveform(freq, **range_params)
@@ -313,10 +311,11 @@ In [.]: plt.savefig("foo.pdf")
         logger.debug("plotting noises...")
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
+        if subtitle:
+            plot_style['title'] += '\n' + subtitle
         plot_budget(
             trace,
             ax=ax,
-            subtitle=subtitle,
             **plot_style
         )
         fig.tight_layout()

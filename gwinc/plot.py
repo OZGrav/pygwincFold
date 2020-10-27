@@ -61,10 +61,7 @@ def plot_budget(
     if 'ylabel' in kwargs:
         ax.set_ylabel(kwargs['ylabel'])
     if 'title' in kwargs:
-        title = kwargs['title']
-        if 'subtitle' in kwargs:
-            title += '\n' + kwargs['subtitle']
-        ax.set_title(title)
+        ax.set_title(kwargs['title'])
 
     return fig
 
