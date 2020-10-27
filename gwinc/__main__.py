@@ -10,7 +10,6 @@ from . import (
     DEFAULT_FREQ,
     freq_from_spec,
     load_budget,
-    plot_budget,
     logger,
 )
 from . import io
@@ -261,14 +260,14 @@ def main():
     if args.interactive:
         banner = """GWINC interactive shell
 
-The 'ifo' Struct and 'budget' trace data objects are available for
+The 'ifo' Struct, 'budget', and 'trace' objects are available for
 inspection.  Use the 'whos' command to view the workspace.
 """
         if not args.plot:
             banner += """
-You may plot the budget using the 'plot_budget()' function:
+You may plot the budget using the 'trace.plot()' method:
 
-In [.]: plot_budget(budget, **plot_style)
+In [.]: trace.plot(**plot_style)
 """
         banner += """
 You may interact with the plot using the 'plt' functions, e.g.:
@@ -277,19 +276,20 @@ In [.]: plt.title("foo")
 In [.]: plt.savefig("foo.pdf")
 """
         from IPython.terminal.embed import InteractiveShellEmbed
+        if subtitle:
+            plot_style['title'] += '\n' + subtitle
         ipshell = InteractiveShellEmbed(
             banner1=banner,
             user_ns={
-                'budget': trace,
                 'ifo': ifo,
+                'budget': budget,
+                'trace': trace,
                 'plot_style': plot_style,
-                'plot_budget': plot_budget,
             },
         )
-        ipshell.enable_pylab()
+        ipshell.enable_pylab(import_all=False)
         if args.plot:
-            ipshell.ex("fig = plot_budget(budget, **plot_style)")
-            ipshell.ex("plt.title(plot_style['title'])")
+            ipshell.ex("fig = trace.plot(**plot_style)")
         ipshell()
 
     ##########
@@ -313,8 +313,7 @@ In [.]: plt.savefig("foo.pdf")
         ax = fig.add_subplot(1, 1, 1)
         if subtitle:
             plot_style['title'] += '\n' + subtitle
-        plot_budget(
-            trace,
+        trace.plot(
             ax=ax,
             **plot_style
         )

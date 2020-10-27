@@ -1,5 +1,5 @@
-def plot_budget(
-        budget,
+def plot_trace(
+        trace,
         ax=None,
         **kwargs
 ):
@@ -17,29 +17,29 @@ def plot_budget(
     else:
         fig = ax.figure
 
-    total = budget.asd
+    total = trace.asd
     ylim = [min(total)/10, max(total)]
     style = dict(
         color='#000000',
         alpha=0.6,
         lw=4,
     )
-    style.update(getattr(budget, 'style', {}))
+    style.update(getattr(trace, 'style', {}))
     if 'label' in style:
         style['label'] = 'Total ' + style['label']
     else:
         style['label'] = 'Total'
-    ax.loglog(budget.freq, total, **style)
+    ax.loglog(trace.freq, total, **style)
 
-    for name, trace in budget.items():
-        style = trace.style
+    for name, strace in trace.items():
+        style = strace.style
         if 'label' not in style:
             style['label'] = name
         if 'linewidth' in style:
             style['lw'] = style['linewidth']
         elif 'lw' not in style:
             style['lw'] = 3
-        ax.loglog(budget.freq, trace.asd, **style)
+        ax.loglog(trace.freq, strace.asd, **style)
 
     ax.grid(
         True,
@@ -56,7 +56,7 @@ def plot_budget(
 
     ax.autoscale(enable=True, axis='y', tight=True)
     ax.set_ylim(kwargs.get('ylim', ylim))
-    ax.set_xlim(budget.freq[0], budget.freq[-1])
+    ax.set_xlim(trace.freq[0], trace.freq[-1])
     ax.set_xlabel('Frequency [Hz]')
     if 'ylabel' in kwargs:
         ax.set_ylabel(kwargs['ylabel'])
@@ -67,4 +67,5 @@ def plot_budget(
 
 
 # FIXME: deprecate
-plot_noise = plot_budget
+plot_noise = plot_trace
+plot_budget = plot_trace
