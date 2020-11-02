@@ -1,6 +1,5 @@
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
 
 from . import IFOS, PLOT_STYLE
 from .. import load_budget
@@ -20,6 +19,11 @@ def main():
         '--save', '-s',
         help="save plot to file (.pdf/.png/.svg)")
     args = parser.parse_args()
+
+    if args.save:
+        from matplotlib import use
+        use('agg')
+    import matplotlib.pyplot as plt
 
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
