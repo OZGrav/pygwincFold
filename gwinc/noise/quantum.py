@@ -90,12 +90,12 @@ def getSqzParams(ifo):
 ######################################################################
 
 
-def shotrad(f, ifo, mirror_mass, power):
+def shotrad(f, ifo, sustf, power):
     """Quantum noise strain spectrum
 
     :f: frequency array in Hz
     :ifo: gwinc IFO Struct
-    :mirror_mass: mirror mass in kg
+    :sustf: suspension transfer function struct
     :power: gwinc power Struct
 
     :returns: displacement noise power spectrum at :f:
@@ -120,12 +120,12 @@ def shotrad(f, ifo, mirror_mass, power):
     ######################################################################
 
     # call the main IFO Quantum Model
-    if 'Type' not in ifo.Optics:
-        fname = shotradSignalRecycled
+    if 'Type' not in ifo.Optics or ifo.Optics.Type == 'SignalRecycled':
+        coeff, Mifo, Msig, Mn = shotradSignalRecycled(f, ifo, sustf, power)
+    elif ifo.Optics.Type == 'SignalRecycledBnC':
+        coeff, Mifo, Msig, Mn = shotradSignalRecycledBnC(f, ifo, power)
     else:
-        namespace = globals()
-        fname = namespace['shotrad' + ifo.Optics.Type]
-    coeff, Mifo, Msig, Mn = fname(f, ifo, mirror_mass, power)
+        raise ValueError('Unrecognized IFO type ' + ifo.Optics.Type)
 
     # separate arm and SEC loss
     Mnoise = dict(arm=Mn[:, :2, :], SEC=Mn[:, 2:, :])
@@ -221,7 +221,7 @@ def compile_SEC_RES_TF():
 # Main IFO quantum models
 ######################################################################
 
-def shotradSignalRecycled(f, ifo, mirror_mass, power):
+def shotradSignalRecycled(f, ifo, sustf, power):
     """Quantum noise model for signal recycled IFO (see shotrad for more info)
 
     New version July 2016 by JH based on transfer function formalism
@@ -242,7 +242,7 @@ def shotradSignalRecycled(f, ifo, mirror_mass, power):
     L = ifo.Infrastructure.Length                # Length of arm cavities [m]
     l = ifo.Optics.SRM.CavityLength              # SRC Length [m]
     T = ifo.Optics.ITM.Transmittance             # ITM Transmittance [Power]
-    m = mirror_mass                              # Mirror mass [kg]
+    m = ifo.Suspension.Stage[0].Mass             # Mirror mass [kg]
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     bsloss = ifo.Optics.BSLoss                   # BS Loss [Power]
@@ -298,7 +298,7 @@ def shotradSignalRecycled(f, ifo, mirror_mass, power):
 
     Omega = 2*pi*f                               # Signal angular frequency [rad/s]
     h_SQL = sqrt(8 * hbar / (m * (Omega * L)**2)) # SQL Strain
-    K = 16 * P * omega_0 / (m * c**2 * Omega**2)
+    K = - 16 * P * omega_0 / c**2 * sustf.tst_suscept
 
     # arm cavity
     exp_2jOmegaL_c = exp(2j*Omega*L/c)
@@ -391,7 +391,7 @@ def shotradSignalRecycled(f, ifo, mirror_mass, power):
     return coeff, Mifo, Msig, Mnoise
 
 
-def shotradSignalRecycledBnC(f, ifo, mirror_mass, power):
+def shotradSignalRecycledBnC(f, ifo, power):
     """Quantum noise model for signal recycled IFO
 
     See shotrad for more info.
@@ -423,7 +423,7 @@ def shotradSignalRecycledBnC(f, ifo, mirror_mass, power):
     L = ifo.Infrastructure.Length                # Length of arm cavities [m]
     l = ifo.Optics.SRM.CavityLength              # SRC Length [m]
     T = ifo.Optics.ITM.Transmittance             # ITM Transmittance [Power]
-    m = mirror_mass                              # Mirror mass [kg]
+    m = ifo.Suspension.Stage[0].Mass             # Mirror mass [kg]
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     bsloss = ifo.Optics.BSLoss                   # BS Loss [Power]

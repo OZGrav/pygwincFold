@@ -132,19 +132,21 @@ def precomp_suspension(f, ifo):
         pc.VHCoupling.theta = ifo.Suspension.VHCoupling.theta
     else:
         pc.VHCoupling.theta = ifo.Infrastructure.Length / const.R_earth
-    hForce, vForce, hTable, vTable = suspension.suspQuad(f, ifo.Suspension)
+    hForce, vForce, hTable, vTable, tst_suscept = suspension.suspQuad(
+        f, ifo.Suspension)
     pc.hForce = hForce
     pc.vForce = vForce
     pc.hTable = hTable
     pc.vTable = vTable
+    pc.tst_suscept = tst_suscept
     return pc
 
 
-def precomp_quantum(f, ifo):
+@nb.precomp(sustf=precomp_suspension)
+def precomp_quantum(f, ifo, sustf):
     pc = Struct()
-    mirror_mass = mirror_struct(ifo, 'ETM').MirrorMass
     power = ifo_power(ifo)
-    noise_dict = noise.quantum.shotrad(f, ifo, mirror_mass, power)
+    noise_dict = noise.quantum.shotrad(f, ifo, sustf, power)
     pc.ASvac = noise_dict['ASvac']
     pc.SEC = noise_dict['SEC']
     pc.Arm = noise_dict['arm']

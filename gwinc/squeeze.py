@@ -9,8 +9,7 @@ def sql(ifo):
     c = const.c
     power = ifo_power(ifo)
     w0 = 2 * pi * c / ifo.Laser.Wavelength
-    rho = ifo.Materials.Substrate.MassDensity
-    m = pi * ifo.Materials.MassRadius**2 * ifo.Materials.MassThickness * rho
+    m = ifo.Suspension.Stage[0].Mass
     Titm = ifo.Optics.ITM.Transmittance
     Tsrm = ifo.Optics.SRM.Transmittance
     tSR = sqrt(Tsrm)

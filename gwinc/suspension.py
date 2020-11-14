@@ -587,9 +587,13 @@ def suspQuad(f, sus):
 
     # Calculate horizontal/vertical TFs with all losses on,
     # for the vibration isolation calculation
-    k = khr + 1j*(khi[:,0,:] + khi[:,1,:])
-    hTable = top_displ_to_tst_displ(k, masses, f)
     k = kvr + 1j*(kvi[:,0,:] + kvi[:,1,:])
     vTable = top_displ_to_tst_displ(k, masses, f)
 
-    return hForce, vForce, hTable, vTable
+    k = khr + 1j*(khi[:,0,:] + khi[:,1,:])
+    hTable = top_displ_to_tst_displ(k, masses, f)
+
+    # test mass susceptibility for radiation pressure calculations
+    tst_suscept = tst_force_to_tst_displ(k, masses, f)
+
+    return hForce, vForce, hTable, vTable, tst_suscept
