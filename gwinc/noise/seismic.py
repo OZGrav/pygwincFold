@@ -6,32 +6,50 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator as interp1d
 
 
-def seismic_suspension_fitered(sus, sustf, in_trans):
+def seismic_suspension_filtered(sustf, in_trans, direction):
     """Seismic displacement noise for single suspended test mass.
 
-    :sus: suspension Struct
     :sustf: sus transfer function Struct
     :in_trans: input translational displacement spectrum
+    :direction: 'horiz' for horizontal or 'vert' for vertical
 
-    :returns: tuple of displacement noise power spectrum at :f:, and
-    horizontal and vertical components.
+    :returns: tuple of displacement noise power spectrum at :f:
 
     """
-    hTable = sustf.hTable
-    vTable = sustf.vTable
+    if direction == 'horiz':
+        # horizontal noise total
+        n = (abs(sustf.hTable)**2) * in_trans**2
 
-    theta = sustf.VHCoupling.theta
+    elif direction == 'vert':
+        # vertical to horizontal coupling
+        theta = sustf.VHCoupling.theta
 
-    # horizontal noise total
-    nh = (abs(hTable)**2) * in_trans**2
+        # vertical noise total
+        n = (abs(theta * sustf.vTable)**2) * in_trans**2
 
-    # vertical noise total
-    nv = (abs(theta * vTable)**2) * in_trans**2
+    return n
 
-    # new total noise
-    n = nv + nh
 
-    return n, nh, nv
+def platform_motion(f, ifo):
+    """Compute the platform motion
+
+    :f: frequency array in Hz
+    :ifo: the IFO struct
+
+    :returns: tuple of displacement noise power spectrum at :f: for
+    translational and rotational DOFs.
+    """
+    if 'PlatformMotion' in ifo.Seismic:
+        if ifo.Seismic.PlatformMotion == 'BSC':
+            nt, nr = seismic_BSC_ISI(f)
+        elif ifo.Seismic.PlatformMotion == '6D':
+            nt, nr = seismic_BSC_ISI_6D(f)
+        else:
+            nt, nr = seismic_BSC_ISI(f)
+    else:
+        nt, nr = seismic_BSC_ISI(f)
+
+    return nt, nr
 
 
 def seismic_BSC_ISI(f):

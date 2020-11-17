@@ -14,7 +14,6 @@ from .. import suspension
 # helper functions
 ############################################################
 
-
 def mirror_struct(ifo, tm):
     """Create a "mirror" Struct for a LIGO core optic
 
@@ -126,7 +125,6 @@ def ifo_power(ifo, PRfixed=True):
 
 ##################################################
 
-
 def precomp_suspension(f, ifo):
     pc = Struct()
     pc.VHCoupling = Struct()
@@ -140,7 +138,6 @@ def precomp_suspension(f, ifo):
     pc.hTable = hTable
     pc.vTable = vTable
     return pc
-
 
 
 def precomp_quantum(f, ifo):
@@ -345,11 +342,44 @@ class StandardQuantumLimit(nb.Noise):
         ETM = mirror_struct(self.ifo, 'ETM')
         return 8 * const.hbar / (ETM.MirrorMass * (2 * np.pi * self.freq) ** 2)
 
+
 #########################
 # seismic
 #########################
 
-class Seismic(nb.Noise):
+class SeismicHorizontal(nb.Noise):
+    """Horizontal seismic noise
+
+    """
+    style = dict(
+        label='Horizontal',
+        color='xkcd:muted blue',
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
+        n = noise.seismic.seismic_suspension_filtered(sustf, nt, 'horiz')
+        return n * 4
+
+
+class SeismicVertical(nb.Noise):
+    """Vertical seismic noise
+
+    """
+    style = dict(
+        label='Vertical',
+        color='xkcd:brick red',
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
+        n = noise.seismic.seismic_suspension_filtered(sustf, nt, 'vert')
+        return n * 4
+
+
+class Seismic(nb.Budget):
     """Seismic
 
     """
@@ -358,20 +388,10 @@ class Seismic(nb.Noise):
         color='#855700',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
-    def calc(self, sustf):
-        if 'PlatformMotion' in self.ifo.Seismic:
-            if self.ifo.Seismic.PlatformMotion == 'BSC':
-                nt, nr = noise.seismic.seismic_BSC_ISI(self.freq)
-            elif self.ifo.Seismic.PlatformMotion == '6D':
-                nt, nr = noise.seismic.seismic_BSC_ISI_6D(self.freq)
-            else:
-                nt, nr = noise.seismic.seismic_BSC_ISI(self.freq)
-        else:
-            nt, nr = noise.seismic.seismic_BSC_ISI(self.freq)
-        n, nh, nv = noise.seismic.seismic_suspension_fitered(
-            self.ifo.Suspension, sustf, nt)
-        return n * 4
+    noises = [
+        SeismicHorizontal,
+        SeismicVertical,
+    ]
 
 
 #########################
@@ -571,7 +591,6 @@ class SubstrateThermoElastic(nb.Noise):
 #########################
 # residual gas
 #########################
-
 
 class ExcessGas(nb.Noise):
     """Excess Gas
