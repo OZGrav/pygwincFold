@@ -53,7 +53,10 @@ class BudgetTrace:
         return bdict
 
     def __getattr__(self, name):
-        return self._bdict[name]
+        try:
+            return self._bdict[name]
+        except KeyError:
+            raise AttributeError
 
     def __getitem__(self, name):
         """get budget trace by name"""
