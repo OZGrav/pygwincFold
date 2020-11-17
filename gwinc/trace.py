@@ -1,5 +1,7 @@
 import numpy as np
 
+from .plot import plot_trace
+
 
 class BudgetTrace:
     """Budget trace data calculated from a Noise or Budget
@@ -80,3 +82,16 @@ class BudgetTrace:
         for trace in self:
             for t in trace.walk():
                 yield t
+
+
+    def plot(self, ax=None, **kwargs):
+        """Plot the trace budget
+
+        If an axis handle `ax` is provided it will be used for the
+        plot.  All remaining keyword arguments are assumed to define
+        various matplotlib plot style attributes.
+
+        Returns the figure handle.
+
+        """
+        return plot_trace(self, ax=ax, **kwargs)

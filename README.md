@@ -115,7 +115,7 @@ accessed directly through the `gwinc` library interface:
 >>> import gwinc
 >>> budget = gwinc.load_budget('aLIGO')
 >>> trace = budget.run()
->>> fig = gwinc.plot_budget(trace)
+>>> fig = trace.plot()
 >>> fig.show()
 ```
 A default frequency array is used, but alternative frequencies can be

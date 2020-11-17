@@ -17,6 +17,7 @@ except ModuleNotFoundError:
         __version__ = '?.?.?'
 from .ifo import IFOS
 from .struct import Struct
+from .plot import plot_trace
 from .plot import plot_budget
 from .plot import plot_noise
 
@@ -209,6 +210,6 @@ def gwinc(freq, ifo, source=None, plot=False, PRfixed=True):
             logger.info('BBH Inspiral Range:     ' + str(score.effr0bh) + ' Mpc/ z = ' + str(score.zHorizonBH))
             logger.info('Stochastic Omega: %4.1g Universes' % score.Omega)
 
-        plot_budget(traces, **plot_style)
+        traces.plot(**plot_style)
 
     return score, noises, ifo
