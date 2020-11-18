@@ -461,20 +461,168 @@ class NewtonianInfrasound(nb.Noise):
 # suspension thermal
 #########################
 
-class SuspensionThermal(nb.Noise):
+class SuspensionThermalHorizTop(nb.Noise):
+    """Horizontal suspension thermal around the top mass
+
+    """
+    style = dict(
+        label='Horiz. Top',
+        color='xkcd:orangeish',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 0, 'horiz')
+        return abs(n) * 4
+
+
+class SuspensionThermalHorizAPM(nb.Noise):
+    """Horizontal suspension thermal around the upper intermediate mass
+
+    """
+    style = dict(
+        label='Horiz. APM',
+        color='xkcd:mustard',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 1, 'horiz')
+        return abs(n) * 4
+
+
+class SuspensionThermalHorizPUM(nb.Noise):
+    """Horizontal suspension thermal around the penultimate mass
+
+    """
+    style = dict(
+        label='Horiz. PUM',
+        color='xkcd:turquoise',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 2, 'horiz')
+        return abs(n) * 4
+
+
+class SuspensionThermalHorizTM(nb.Noise):
+    """Horizontal suspension thermal around the test
+
+    """
+    style = dict(
+        label='Horiz. Test mass',
+        color='xkcd:bright purple',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        precomp_suspension(self.freq, self.ifo)
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 3, 'horiz')
+        return abs(n) * 4
+
+
+class SuspensionThermalVertTop(nb.Noise):
+    """Vertical suspension thermal around the top mass
+
+    """
+    style = dict(
+        label='Vert. Top',
+        color='xkcd:orangeish',
+        linestyle='--',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 0, 'vert')
+        return abs(n) * 4
+
+
+class SuspensionThermalVertAPM(nb.Noise):
+    """Vertical suspension thermal around the upper intermediate mass
+
+    """
+    style = dict(
+        label='Vert. APM',
+        color='xkcd:mustard',
+        linestyle='--',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 1, 'vert')
+        return abs(n) * 4
+
+
+class SuspensionThermalVertPUM(nb.Noise):
+    """Vertical suspension thermal around the penultimate mass
+
+    """
+    style = dict(
+        label='Vert. PUM',
+        color='xkcd:turquoise',
+        linestyle='--',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 2, 'vert')
+        return abs(n) * 4
+
+
+class SuspensionThermalVertTM(nb.Noise):
+    """Vertical suspension thermal around the test
+
+    """
+    style = dict(
+        label='Vert. Test mass',
+        color='xkcd:bright purple',
+        linestyle='--',
+        alpha=0.7,
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        n = noise.suspensionthermal.susptherm_stage(
+            self.freq, self.ifo.Suspension, sustf, 3, 'vert')
+        return abs(n) * 4
+
+
+class SuspensionThermal(nb.Budget):
     """Suspension Thermal
 
     """
+
+    name = 'SuspensionThermal'
+
     style = dict(
         label='Suspension Thermal',
         color='#0d75f8',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.suspension_thermal(
-            self.freq, self.ifo.Suspension, sustf)
-        return n * 4
+    noises = [
+        SuspensionThermalHorizTop,
+        SuspensionThermalHorizAPM,
+        SuspensionThermalHorizPUM,
+        SuspensionThermalHorizTM,
+        SuspensionThermalVertTop,
+        SuspensionThermalVertAPM,
+        SuspensionThermalVertPUM,
+    ]
 
 
 #########################
