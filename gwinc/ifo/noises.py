@@ -203,9 +203,19 @@ def dhdl(f, armlen):
 
 
 class Strain(nb.Calibration):
+    """Calibrate displacement to strain
+    """
     def calc(self):
         dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
         return dhdl_sqr
+
+
+class Force(nb.Calibration):
+    """Calibrate displacement to force
+    """
+    def calc(self):
+        mass = mirror_struct(self.ifo, 'ETM').MirrorMass
+        return (mass * (2*pi*self.freq)**2)**2
 
 
 ############################################################
