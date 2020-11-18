@@ -553,8 +553,8 @@ def suspQuad(f, sus):
             kvi[n, 0, :] = imag(kv4)
             kvi[n, 1, :] = 0
             khr[n, :] = real(kh4)
-            khi[n, 0, :] = imag(kh4)
-            khi[n, 1, :] = 0
+            khi[n, 0, :] = imag(kh4) / 2
+            khi[n, 1, :] = imag(kh4) / 2
 
 
     ###############################################################
