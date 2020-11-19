@@ -44,8 +44,14 @@ def platform_motion(f, ifo):
             nt, nr = seismic_BSC_ISI(f)
         elif ifo.Seismic.PlatformMotion == '6D':
             nt, nr = seismic_BSC_ISI_6D(f)
+        elif ifo.Seismic.PlatformMotion == 'intermediate':
+            nt_isi, nr_isi = seismic_BSC_ISI(f)
+            nt_6d, nr_6d = seismic_BSC_ISI_6D(f)
+            nt = np.sqrt(nt_isi * nt_6d)
+            nr = np.sqrt(nr_isi * nr_6d)
         else:
-            nt, nr = seismic_BSC_ISI(f)
+            raise ValueError(
+                'Unrecognized platform motion ' + ifo.Seismic.PlatformMotion)
     else:
         nt, nr = seismic_BSC_ISI(f)
 
