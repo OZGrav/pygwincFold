@@ -122,6 +122,7 @@ def main():
             parser.exit(2, "IFO parameter specification not allowed when loading traces from file.\n")
         from .io import load_hdf5
         budget = None
+        name = args.IFO
         trace = load_hdf5(args.IFO)
         freq = trace.freq
         ifo = trace.ifo
@@ -133,6 +134,7 @@ def main():
         except IndexError:
             parser.exit(2, "Improper frequency specification: {}\n".format(args.freq))
         budget = load_budget(args.IFO, freq=freq)
+        name = budget.name
         ifo = budget.ifo
         plot_style = getattr(budget, 'plot_style', {})
         trace = None
@@ -232,7 +234,7 @@ def main():
     if args.title:
         plot_style['title'] = args.title
     else:
-        plot_style['title'] = "GWINC Noise Budget: {}".format(args.IFO)
+        plot_style['title'] = "GWINC Noise Budget: {}".format(name)
 
     if args.range:
         logger.info("calculating inspiral ranges...")
