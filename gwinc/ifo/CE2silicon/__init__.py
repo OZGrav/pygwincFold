@@ -72,6 +72,7 @@ class Substrate(nb.Budget):
     )
 
     noises = [
+        ITMThermoRefractive,
         SubstrateBrownian,
         SubstrateThermoElastic,
     ]
@@ -80,9 +81,9 @@ class Substrate(nb.Budget):
 ExcessGas.style['linestyle'] = '-'
 
 
-class CE1(nb.Budget):
+class CE2silicon(nb.Budget):
 
-    name = 'Cosmic Explorer 1'
+    name = 'Cosmic Explorer 2 (Silicon)'
 
     noises = [
         QuantumVacuum,

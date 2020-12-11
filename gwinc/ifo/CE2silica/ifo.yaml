@@ -1,4 +1,4 @@
-# GWINC CE1 interferometer parameters
+# GWINC CE2 (Silica) interferometer parameters
 #
 # References:
 # 1. Electro-Optic Handbook, Waynant & Ediger (McGraw-Hill: 1993)
@@ -73,14 +73,14 @@ Seismic:
   Rho: 1.8e3                        # kg/m^3; density of the ground nearby
   Beta: 0.8                         # quiet times beta: 0.35-0.60
                                     # noisy times beta: 0.15-1.4
-  Omicron: 2                        # Feedforward cancellation factor
+  Omicron: 10                       # Feedforward cancellation factor
   TestMassHeight: 1.5               # m
   pWaveSpeed: 600                   # m/s
   sWaveSpeed: 300                   # m/s
   RayleighWaveSpeed: 250            # m/s
-  pWaveLevel: 50                    # Multiple of the Peterson NLNM amplitude
-  sWaveLevel: 40                    # Multiple of the Peterson NLNM amplitude
-  PlatformMotion: 'intermediate'
+  pWaveLevel: 15                    # Multiple of the Peterson NLNM amplitude
+  sWaveLevel: 15                    # Multiple of the Peterson NLNM amplitude
+  PlatformMotion: '6D'
 
 
 Atmospheric:
@@ -192,8 +192,8 @@ Suspension:
 
 ## Optic Material
 Materials:
-  MassRadius: 0.35                  # m
-  MassThickness: 0.378              # m
+  MassRadius: 0.35                # m
+  MassThickness: 0.378            # m
 
   ## Dielectric coating material parameters
   Coating:
@@ -290,7 +290,7 @@ Squeezer:
   #   Optimal = find the best squeeze angle, assuming no output filtering
   #   OptimalOptimal = optimal squeeze angle, assuming optimal readout phase
   Type: 'Freq Dependent'
-  AmplitudedB: 7                  # SQZ amplitude [dB]
+  AmplitudedB: 15                  # SQZ amplitude [dB]
   InjectionLoss: 0.02             # power loss to sqz
   SQZAngle: 0                     # SQZ phase [radians]
   LOAngleRMS: 10e-3               # quadrature noise [radians]

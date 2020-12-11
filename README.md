@@ -32,7 +32,8 @@ and future GW detectors (`gwinc.ifo`):
 * [A+](https://gwinc.docs.ligo.org/pygwinc/ifo/Aplus.png)
 * [Voyager](https://gwinc.docs.ligo.org/pygwinc/ifo/Voyager.png)
 * [Cosmic Explorer 1](https://gwinc.docs.ligo.org/pygwinc/ifo/CE1.png)
-* [Cosmic Explorer 2](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2.png)
+* [Cosmic Explorer 2 (Silica)](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2silica.png)
+* [Cosmic Explorer 2 (Silicon)](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2silicon.png)
 
 See [IFO.md](IFO.md) for the latest CI-generated plots and hdf5 cached
 data.
