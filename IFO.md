@@ -40,9 +40,17 @@ Ranges in "Mpc" are for binary neutron stars (BNS) using the
 ![CE1](https://gwinc.docs.ligo.org/pygwinc/ifo/CE1.png)
 
 
-## Cosmic Explorer 2
+## Cosmic Explorer 2 (Silica)
 
-* [ifo.yaml](gwinc/ifo/CE2/ifo.yaml)
-* [CE2.h5](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2.h5)
+* [ifo.yaml](gwinc/ifo/CE2silica/ifo.yaml)
+* [CE2silica.h5](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2silica.h5)
 
-![CE2](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2.png)
+![CE2 (Silica)](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2silica.png)
+
+
+## Cosmic Explorer 2 (Silicon)
+
+* [ifo.yaml](gwinc/ifo/CE2silicon/ifo.yaml)
+* [CE2silicon.h5](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2silicon.h5)
+
+![CE2 (Silicon)](https://gwinc.docs.ligo.org/pygwinc/ifo/CE2silicon.png)

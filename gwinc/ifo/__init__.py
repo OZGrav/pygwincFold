@@ -6,7 +6,8 @@ IFOS = [
     'Aplus',
     'Voyager',
     'CE1',
-    'CE2',
+    'CE2silica',
+    'CE2silicon',
 ]
 
 

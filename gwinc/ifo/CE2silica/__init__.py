@@ -69,19 +69,20 @@ class Substrate(nb.Budget):
     style = dict(
         label='Substrate Thermal',
         color='#fb7d07',
-        linestyle='--',
     )
 
     noises = [
-        ITMThermoRefractive,
         SubstrateBrownian,
         SubstrateThermoElastic,
     ]
 
 
-class CE2(nb.Budget):
+ExcessGas.style['linestyle'] = '-'
 
-    name = 'Cosmic Explorer 2'
+
+class CE2silica(nb.Budget):
+
+    name = 'Cosmic Explorer 2 (Silica)'
 
     noises = [
         QuantumVacuum,
