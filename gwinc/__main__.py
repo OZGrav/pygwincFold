@@ -47,20 +47,20 @@ file (without display) (various file formats are supported, indicated
 by file extension).  If the requested extension is 'hdf5' or 'h5' then
 the noise traces and IFO parameters will be saved to an HDF5 file.
 
-If the inspiral_range package is available, various BNS (m1=m2=1.4
-M_solar) range figures of merit will be calculated for the resultant
-spectrum.  The range parameters can be overriden with the --range
-option, e.g.:
+If the --range option is specified and the inspiral_range package is
+available, various BNS (m1=m2=1.4 M_solar) range figures of merit will
+be calculated for the resultant spectrum.  The default waveform
+parameters can be overriden with the --waveform-parameter/-wp option
+(--range implied if specified) e.g.:
 
-  gwinc --range m1=20,m2=20 ...
+  gwinc -wp m1=20 -wp m2=20 ...
 
-Specify "none" to bypass calculating the inspiral ranges.  See the
-inspiral_range package documentation for details.
+See the inspiral_range package documentation for details.
 """
 
 IFO = 'aLIGO'
 FREQ = '5:3000:6000'
-RANGE_PARAMS = 'm1=1.4,m2=1.4'
+RANGE_PARAMS = ['m1=1.4', 'm2=1.4']
 DATA_SAVE_FORMATS = ['.hdf5', '.h5']
 
 parser = argparse.ArgumentParser(
@@ -81,7 +81,11 @@ parser.add_argument(
     '--title', '-t',
     help="plot title")
 parser.add_argument(
-    '--range', metavar='PARAM=VAL[,...]', default=RANGE_PARAMS,
+    '--range', '-r', action='store_true',
+    help="specify inspiral_range parameters, or 'none' to not calculate range")
+parser.add_argument(
+    '--waveform-parameter', '-wp', metavar='PARAM=VAL[,...]', default=RANGE_PARAMS,
+    action='append',
     help="specify inspiral_range parameters, or 'none' to not calculate range")
 group = parser.add_mutually_exclusive_group()
 group.add_argument(
@@ -204,9 +208,9 @@ def main():
             logger.warning("no display, plotting disabled.")
             args.plot = False
 
-    if args.range.lower() in ['none', 'no', 'false']:
-        args.range = None
-    else:
+    if args.waveform_parameter:
+        args.range = True
+    if args.range:
         try:
             import inspiral_range
             logger_ir = logging.getLogger('inspiral_range')
@@ -216,10 +220,10 @@ def main():
             logger_ir.addHandler(handler)
         except ModuleNotFoundError:
             logger.warning("WARNING: inspiral_range package not available, figure of merit will not be calculated.")
-            args.range = None
+            args.range = False
     if args.range:
         range_params = {}
-        for param in args.range.split(','):
+        for param in args.waveform_parameter:
             if not param:
                 continue
             try:
