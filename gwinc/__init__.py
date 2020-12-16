@@ -116,7 +116,7 @@ def load_budget(name_or_path, freq=None):
 
     else:
         if name_or_path not in IFOS:
-            raise RuntimeError("Unknonw IFO '{}' (available IFOs: {}).".format(
+            raise RuntimeError("Unknown IFO '{}' (available IFOs: {}).".format(
                 name_or_path,
                 IFOS,
             ))

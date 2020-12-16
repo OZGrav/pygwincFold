@@ -133,8 +133,10 @@ def main():
             freq = freq_from_spec(args.freq)
         except IndexError:
             parser.exit(2, "Improper frequency specification: {}\n".format(args.freq))
-        budget = load_budget(args.IFO, freq=freq)
-        name = budget.name
+        try:
+            budget = load_budget(args.IFO, freq=freq)
+        except RuntimeError as e:
+            parser.exit(2, str(e)+'\n')
         ifo = budget.ifo
         plot_style = getattr(budget, 'plot_style', {})
         trace = None
