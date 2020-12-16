@@ -141,8 +141,11 @@ def main():
 
     if args.ifo:
         for paramval in args.ifo:
-            param, val = paramval.split('=', 1)
-            ifo[param] = float(val)
+            try:
+                param, val = paramval.split('=', 1)
+                ifo[param] = float(val)
+            except ValueError:
+                parser.error("Improper IFO parameter specification.")
 
     if args.yaml:
         if not ifo:
@@ -178,6 +181,8 @@ def main():
         for path in args.save:
             if os.path.splitext(path)[1] in io.DATA_SAVE_FORMATS:
                 out_data_files.add(path)
+            else:
+                parser.exit(2, "Save file extension not specified.\n")
         out_plot_files = set(args.save) - out_data_files
 
     if args.plot or out_plot_files:
@@ -215,9 +220,12 @@ def main():
         for param in args.range.split(','):
             if not param:
                 continue
-            p, v = param.split('=')
-            if not v:
-                raise ValueError('missing parameter value "{}"'.format(p))
+            try:
+                p, v = param.split('=')
+                if not v:
+                    raise ValueError
+            except ValueError:
+                parser.error("Improper range parameter specification.")
             try:
                 v = float(v)
             except ValueError:
