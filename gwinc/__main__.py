@@ -141,6 +141,7 @@ def main():
             budget = load_budget(args.IFO, freq=freq)
         except RuntimeError as e:
             parser.exit(2, str(e)+'\n')
+        name = budget.name
         ifo = budget.ifo
         plot_style = getattr(budget, 'plot_style', {})
         trace = None
