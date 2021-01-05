@@ -13,7 +13,7 @@ except ModuleNotFoundError:
         __version__ = setuptools_scm.get_version(fallback_version='?.?.?')
     # FIXME: fallback_version is not available in the buster version
     # (3.2.0-1)
-    except (ModuleNotFoundError, TypeError):
+    except (ModuleNotFoundError, TypeError, LookupError):
         __version__ = '?.?.?'
 from .ifo import IFOS
 from .struct import Struct
