@@ -90,7 +90,7 @@ class Matlab:
         assert len(wvars) > 0
         with tempfile.NamedTemporaryFile(suffix='.mat') as f:
             MATLAB_ENGINE.save(f.name, *wvars, nargout=0)
-            data = scipy.io.loadmat(f, squeeze_me=True, struct_as_record=False)
+            data = scipy.io.loadmat(f.name, squeeze_me=True, struct_as_record=False)
         if len(wvars) == 1:
             return data[wvars[0]]
         else:
