@@ -181,11 +181,11 @@ def main():
                 print(fmt.format(k, v, ov))
         return
 
-    out_files = set(args.save)
     out_data_files = set()
     out_plot_files = set()
-    if out_files:
+    if args.save:
         args.plot = False
+        out_files = set(args.save)
         for path in out_files:
             if os.path.splitext(path)[1] in io.DATA_SAVE_FORMATS:
                 out_data_files.add(path)
