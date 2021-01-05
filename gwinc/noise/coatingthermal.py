@@ -935,8 +935,8 @@ def getCoatReflAndDer(nN, nsub, dOpt):
     # rhoN[0] is total complex reflectivity of the coating stack.
     rhoN = np.zeros_like(Refl, np.complex128)
 
-    phiNmkm1 = np.flip(Phi)             # phi_{N-k-1}
-    rNmkm1 = np.flip(Refl[:-1])              # r_{N-k-1}
+    phiNmkm1 = np.flipud(Phi)             # phi_{N-k-1}
+    rNmkm1 = np.flipud(Refl[:-1])              # r_{N-k-1}
     exp2iphiNmkm1 = np.exp(2j*phiNmkm1)      # exp(2i phi_{N-k-1})
 
     # Recursion relation for complex reflectivity
@@ -955,11 +955,11 @@ def getCoatReflAndDer(nN, nsub, dOpt):
     delRhokp1_delPhiNmkm1 = np.append(0, -2j * rhoN[:-1] * delRhokp1_delRhok)
 
     # Derivative of rho_{N} wrt to rho_{N-j}
-    delRhoN_delRhoNmj = np.append(1, np.cumprod(np.flip(delRhokp1_delRhok)))
+    delRhoN_delRhoNmj = np.append(1, np.cumprod(np.flipud(delRhokp1_delRhok)))
 
     # Derivative of rho_{N} wrt to r_k and phi_k
-    delRho_delRk = - delRhoN_delRhoNmj * np.flip(delRhokp1_delRNmkm1)
-    delRho_delPhik = - delRhoN_delRhoNmj * np.flip(delRhokp1_delPhiNmkm1)
+    delRho_delRk = - delRhoN_delRhoNmj * np.flipud(delRhokp1_delRNmkm1)
+    delRho_delPhik = - delRhoN_delRhoNmj * np.flipud(delRhokp1_delPhiNmkm1)
     delLogRho_delReflk = delRho_delRk / rhoN[-1]
     delLogRho_delPhik = delRho_delPhik / rhoN[-1]
     delLogRho_delPhik[-1] = 0        # Define this as per Eq (26)
