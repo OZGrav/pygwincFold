@@ -181,16 +181,15 @@ def main():
                 print(fmt.format(k, v, ov))
         return
 
+    out_files = set(args.save)
     out_data_files = set()
     out_plot_files = set()
-    if args.save:
+    if out_files:
         args.plot = False
-        for path in args.save:
+        for path in out_files:
             if os.path.splitext(path)[1] in io.DATA_SAVE_FORMATS:
                 out_data_files.add(path)
-            else:
-                parser.exit(2, "Save file extension not specified.\n")
-        out_plot_files = set(args.save) - out_data_files
+        out_plot_files = out_files - out_data_files
 
     if args.plot or out_plot_files:
         if out_plot_files:
@@ -338,7 +337,10 @@ In [.]: plt.savefig("foo.pdf")
         if out_plot_files:
             for path in out_plot_files:
                 logger.info("saving budget plot: {}".format(path))
-                fig.savefig(path)
+                try:
+                    fig.savefig(path)
+                except Exception as e:
+                    parser.exit(2, f"Error saving plot: {e}.\n")
         else:
             plt.show()
 
