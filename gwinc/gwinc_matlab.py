@@ -77,7 +77,7 @@ class Matlab:
         # similar stupidity prevents this (this time recarrays in the dict):
         #matlab.workspace['ifo'] = ifo.to_dict(array=True)
         with tempfile.NamedTemporaryFile(suffix='.mat') as f:
-            scipy.io.savemat(f, struct.to_dict(array=True))
+            scipy.io.savemat(f.name, struct.to_dict(array=True))
             MATLAB_ENGINE.eval("{} = load('{}');".format(var, f.name), nargout=0)
 
 
