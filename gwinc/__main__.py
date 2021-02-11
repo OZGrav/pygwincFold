@@ -106,6 +106,9 @@ parser.add_argument(
     '--no-plot', '-np', action='store_false', dest='plot',
     help="suppress plotting")
 parser.add_argument(
+    '--bname', '-b',
+    help="name of top-level Budget class to load (defaults to IFO name)")
+parser.add_argument(
     'IFO',
     help="IFO name or path")
 
@@ -137,7 +140,7 @@ def main():
         except IndexError:
             parser.error(f"Improper frequency specification: {args.freq}")
         try:
-            budget = load_budget(args.IFO, freq=freq)
+            budget = load_budget(args.IFO, freq=freq, bname=args.bname)
         except RuntimeError as e:
             parser.exit(2, f"Error: {e}\n")
         name = budget.name
