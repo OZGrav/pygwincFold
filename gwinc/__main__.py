@@ -50,17 +50,16 @@ the noise traces and IFO parameters will be saved to an HDF5 file.
 If the --range option is specified and the inspiral_range package is
 available, various BNS (m1=m2=1.4 M_solar) range figures of merit will
 be calculated for the resultant spectrum.  The default waveform
-parameters can be overriden with the --waveform-parameter/-wp option
-(--range implied if specified) e.g.:
+parameters can be overriden with the --waveform-parameter/-wp option:
 
-  gwinc -wp m1=20 -wp m2=20 ...
+  gwinc -r -wp m1=20 -wp m2=20 ...
 
 See the inspiral_range package documentation for details.
 """
 
 IFO = 'aLIGO'
 FREQ = '5:3000:6000'
-RANGE_PARAMS = ['m1=1.4', 'm2=1.4']
+RANGE_PARAMS = dict(m1=1.4, m2=1.4)
 DATA_SAVE_FORMATS = ['.hdf5', '.h5']
 
 parser = argparse.ArgumentParser(
@@ -82,11 +81,11 @@ parser.add_argument(
     help="plot title")
 parser.add_argument(
     '--range', '-r', action='store_true',
-    help="specify inspiral_range parameters, or 'none' to not calculate range")
+    help="calculate inspiral ranges [m1=m2=1.4]")
 parser.add_argument(
-    '--waveform-parameter', '-wp', metavar='PARAM=VAL[,...]', default=RANGE_PARAMS,
+    '--waveform-parameter', '-wp', metavar='PARAM=VAL', default=[],
     action='append',
-    help="specify inspiral_range parameters, or 'none' to not calculate range")
+    help="specify inspiral range parameters (may be specified multiple times)")
 group = parser.add_mutually_exclusive_group()
 group.add_argument(
     '--interactive', '-i', action='store_true',
@@ -207,35 +206,30 @@ def main():
             logger.warning("no display, plotting disabled.")
             args.plot = False
 
-    if args.waveform_parameter:
-        args.range = True
     if args.range:
         try:
             import inspiral_range
-            logger_ir = logging.getLogger('inspiral_range')
-            logger_ir.setLevel(logger.getEffectiveLevel())
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
-            logger_ir.addHandler(handler)
-        except ModuleNotFoundError:
-            logger.warning("WARNING: inspiral_range package not available, figure of merit will not be calculated.")
-            args.range = False
-    if args.range:
-        range_params = {}
-        for param in args.waveform_parameter:
-            if not param:
-                continue
+        except ImportError as e:
+            parser.exit(5, f"ImportError: {e}\n")
+
+        logger_ir = logging.getLogger('inspiral_range')
+        logger_ir.setLevel(logger.getEffectiveLevel())
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
+        logger_ir.addHandler(handler)
+
+        for paramval in args.waveform_parameter:
             try:
-                p, v = param.split('=')
-                if not v:
+                param, val = paramval.split('=')
+                if not val:
                     raise ValueError
             except ValueError:
-                parser.error("Improper range parameter specification.")
+                parser.error(f"Improper range parameter specification: {paramval}")
             try:
-                v = float(v)
+                val = float(val)
             except ValueError:
                 pass
-            range_params[p] = v
+            RANGE_PARAMS[param] = val
 
     ##########
     # main calculations
@@ -251,7 +245,7 @@ def main():
 
     if args.range:
         logger.info("calculating inspiral ranges...")
-        metrics, H = inspiral_range.all_ranges(freq, trace.psd, **range_params)
+        metrics, H = inspiral_range.all_ranges(freq, trace.psd, **RANGE_PARAMS)
         print(f"{H.params['approximant']} {H.params['m1']}/{H.params['m2']} M_solar:")
         for metric, (value, unit) in metrics.items():
             if unit is None:

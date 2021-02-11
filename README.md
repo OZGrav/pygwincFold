@@ -74,6 +74,9 @@ Trace HDF5 files can also be plotted directly:
 $ python3 -m gwinc aLIGO.hdf5
 ```
 
+The `--range` option can be used to include the values of various
+inspiral ranges for the overall noise in the output.
+
 IFO parameters can be manipulated from the command line with the
 `--ifo` option:
 ```shell
