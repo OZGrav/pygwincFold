@@ -202,9 +202,10 @@ def main():
             matplotlib.use('AGG')
         try:
             from matplotlib import pyplot as plt
+        except ImportError as e:
+            parser.exit(5, f"ImportError: {e}\n")
         except RuntimeError:
-            logger.warning("no display, plotting disabled.")
-            args.plot = False
+            parser.exit(10, "Could not open display for plotting.\n")
 
     if args.range:
         try:
