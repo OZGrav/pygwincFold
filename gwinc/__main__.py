@@ -73,7 +73,7 @@ parser.add_argument(
     '--freq', '-f', metavar='FLO:[NPOINTS:]FHI',
     help="logarithmic frequency array specification in Hz [{}]".format(DEFAULT_FREQ))
 parser.add_argument(
-    '--ifo', '-o', metavar='PARAM=VAL',
+    '--ifo', '-o', metavar='PARAM=VAL', default=[],
     #nargs='+', action='extend',
     action='append',
     help="override budget IFO parameter (may be specified multiple times)")
@@ -146,13 +146,12 @@ def main():
         plot_style = getattr(budget, 'plot_style', {})
         trace = None
 
-    if args.ifo:
-        for paramval in args.ifo:
-            try:
-                param, val = paramval.split('=', 1)
-                ifo[param] = float(val)
-            except ValueError:
-                parser.error("Improper IFO parameter specification.")
+    for paramval in args.ifo:
+        try:
+            param, val = paramval.split('=', 1)
+            ifo[param] = float(val)
+        except ValueError:
+            parser.error(f"Improper IFO parameter specification: {paramval}")
 
     if args.yaml:
         if not ifo:
