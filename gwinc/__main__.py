@@ -135,7 +135,7 @@ def main():
         try:
             freq = freq_from_spec(args.freq)
         except IndexError:
-            parser.exit(2, "Improper frequency specification: {}\n".format(args.freq))
+            parser.error(f"Improper frequency specification: {args.freq}")
         try:
             budget = load_budget(args.IFO, freq=freq)
         except RuntimeError as e:
