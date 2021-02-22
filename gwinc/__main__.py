@@ -114,6 +114,9 @@ parser.add_argument(
 parser.add_argument(
     'IFO',
     help="IFO name or path")
+parser.add_argument(
+    'subbudget', metavar='SUBBUDGET', nargs='?',
+    help="subbudget to plot; can be nested (e.g. 'Thermal.Substrate')")
 
 
 def main():
@@ -191,6 +194,12 @@ def main():
             print(f'{name} ({type})')
         return
 
+    if args.subbudget:
+        try:
+            budget[args.subbudget]
+        except KeyError:
+            parser.exit(3, f"Error: Unknown budget item '{args.subbudget}'.\n")
+
     out_data_files = set()
     out_plot_files = set()
     if args.save:
@@ -251,11 +260,6 @@ def main():
         logger.info("calculating budget...")
         trace = budget.run(freq=freq)
 
-    if args.title:
-        plot_style['title'] = args.title
-    else:
-        plot_style['title'] = "GWINC Noise Budget: {}".format(name)
-
     if args.range:
         logger.info("calculating inspiral ranges...")
         metrics, H = inspiral_range.all_ranges(freq, trace.psd, **RANGE_PARAMS)
@@ -274,6 +278,15 @@ def main():
         )
     else:
         subtitle = None
+
+    if args.subbudget:
+        trace = trace[args.subbudget]
+        name += f': {args.subbudget}'
+
+    if args.title:
+        plot_style['title'] = args.title
+    else:
+        plot_style['title'] = "GWINC Noise Budget: {}".format(name)
 
     ##########
     # interactive
