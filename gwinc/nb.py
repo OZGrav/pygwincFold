@@ -418,13 +418,33 @@ class Budget(Noise):
         return name
 
     def __getitem__(self, name):
+        """Get a (possibly nested) sub-BudgetItem.
+
+        """
         try:
-            return self._noise_objs[name]
+            name, rest = name.split('.', 1)
+        except ValueError:
+            rest = None
+        try:
+            o = self._noise_objs[name]
         except KeyError:
             try:
-                return self._cal_objs[name]
+                o = self._cal_objs[name]
             except KeyError:
                 raise KeyError("unknown noise or cal name '{}".format(name))
+        if rest:
+            return o[rest]
+        else:
+            return o
+
+    def get(self, key, default=None):
+        """Get a (possibly nested) sub-BudgetItem.
+
+        """
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def keys(self):
         """Iterate over budget noise names."""
