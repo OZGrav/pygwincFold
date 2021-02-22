@@ -102,6 +102,9 @@ group.add_argument(
 group.add_argument(
     '--diff', '-d', metavar='IFO',
     help="show difference table between IFO and another IFO description (name or path) and exit (budget not calculated)")
+group.add_argument(
+    '--list', '-l', action='store_true',
+    help="list all elements of Budget (budget not calculated)")
 parser.add_argument(
     '--no-plot', '-np', action='store_false', dest='plot',
     help="suppress plotting")
@@ -180,6 +183,12 @@ def main():
                 v = repr(p[1])
                 ov = repr(p[2])
                 print(fmt.format(k, v, ov))
+        return
+    if args.list:
+        for i in budget.walk():
+            name = '.'.join([n.__class__.__name__ for n in i])
+            type = i[-1].__class__.__bases__[0].__name__
+            print(f'{name} ({type})')
         return
 
     out_data_files = set()
