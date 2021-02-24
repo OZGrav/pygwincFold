@@ -22,7 +22,7 @@ def plot_trace(
     style = dict(
         color='#000000',
         alpha=0.6,
-        lw=4,
+        linewidth=4,
     )
     style.update(getattr(trace, 'style', {}))
     if 'label' in style:
@@ -35,16 +35,14 @@ def plot_trace(
         style = strace.style
         if 'label' not in style:
             style['label'] = name
-        if 'linewidth' in style:
-            style['lw'] = style['linewidth']
-        elif 'lw' not in style:
-            style['lw'] = 3
+        elif 'linewidth' not in style:
+            style['linewidth'] = 3
         ax.loglog(trace.freq, strace.asd, **style)
 
     ax.grid(
         True,
         which='both',
-        lw=0.5,
+        linewidth=0.5,
         ls='-',
         alpha=0.5,
     )

@@ -53,12 +53,12 @@ def main():
             pad=range_pad,
             range=label_range,
         )
-        ax.loglog(freq, trace.asd, label=label, lw=2)
+        ax.loglog(freq, trace.asd, label=label, linewidth=2)
 
     ax.grid(
         True,
         which='both',
-        lw=0.5,
+        linewidth=0.5,
         ls='-',
         alpha=0.5,
     )
