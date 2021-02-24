@@ -120,9 +120,9 @@ def main():
 
     if os.path.splitext(os.path.basename(args.IFO))[1] in io.DATA_SAVE_FORMATS:
         if args.freq:
-            parser.exit(2, "Frequency specification not allowed when loading traces from file.\n")
+            parser.exit(2, "Error: Frequency specification not allowed when loading traces from file.\n")
         if args.ifo:
-            parser.exit(2, "IFO parameter specification not allowed when loading traces from file.\n")
+            parser.exit(2, "Error: IFO parameter specification not allowed when loading traces from file.\n")
         from .io import load_hdf5
         budget = None
         name = args.IFO
@@ -139,7 +139,7 @@ def main():
         try:
             budget = load_budget(args.IFO, freq=freq)
         except RuntimeError as e:
-            parser.exit(2, str(e)+'\n')
+            parser.exit(2, f"Error: {e}\n")
         name = budget.name
         ifo = budget.ifo
         plot_style = getattr(budget, 'plot_style', {})
@@ -154,17 +154,17 @@ def main():
 
     if args.yaml:
         if not ifo:
-            parser.exit(2, "IFO structure not provided.\n")
+            parser.exit(2, "Error: IFO structure not provided.\n")
         print(ifo.to_yaml(), end='')
         return
     if args.text:
         if not ifo:
-            parser.exit(2, "IFO structure not provided.\n")
+            parser.exit(2, "Error: IFO structure not provided.\n")
         print(ifo.to_txt(), end='')
         return
     if args.diff:
         if not ifo:
-            parser.exit(2, "IFO structure not provided.\n")
+            parser.exit(2, "Error: IFO structure not provided.\n")
         dbudget = load_budget(args.diff)
         diffs = ifo.diff(dbudget.ifo)
         if diffs:
@@ -205,7 +205,7 @@ def main():
         except ImportError as e:
             parser.exit(5, f"ImportError: {e}\n")
         except RuntimeError:
-            parser.exit(10, "Could not open display for plotting.\n")
+            parser.exit(10, "Error: Could not open display for plotting.\n")
 
     if args.range:
         try:
@@ -259,7 +259,7 @@ def main():
             m2=H.params['m2'],
             fom=metrics[range_func][0],
             unit=metrics[range_func][1] or '',
-            )
+        )
     else:
         subtitle = None
 
