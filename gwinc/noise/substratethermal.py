@@ -34,19 +34,13 @@ def substrate_thermorefractive(f, materials, wBeam, exact=False):
     omega = 2*pi*f
 
     if exact:
-        def integrand(k, om, D):
-            return D * k**3 * exp(-k**2 * wBeam**2/4) / (D**2 * k**4 + om**2)
-
-        inte = np.array([scipy.integrate.quad(lambda k: integrand(k, om, kappa/(rho*C)), 0, inf)[0] for om in omega])
-
-        # From P1400084 Heinert et al. Eq. 15
-        #psdCD = @(gamma,m,int) 2*(3/pi^7)^(1/3)*kBT*H*gamma^2*m/hbar^2*cdDens^(1/3)*int; %units are meters
-        psdTR = lambda int_: 2/pi * H * beta**2 * kBT * Temp / (rho*C) * int_
-
-        psd = psdTR(inte)
-        psd = 2/pi * H * beta**2 * kBT * Temp / (rho*C) * inte
+        # arXiv:cond-mat/0402650, Eq. E7
+        w = omega * r0**2 * rho * C / (2 * kappa)
+        psd = np.abs(H * beta**2 * kBT * Temp / (2 * pi * kappa) * (exp(1j*w) * scipy.special.exp1(1j*w)
+            + exp(-1j*w) * scipy.special.exp1(-1j*w)))
 
     else:
+        # arXiv:cond-mat/0402650, Eq. 5.3; P1400084, Eq. 18
         psd = 4*H*beta**2*kappa*kBT*Temp/(pi*r0**4*omega**2*(rho*C)**2)
 
     return psd
