@@ -74,20 +74,25 @@ def load_module(name_or_path):
     return mod, path
 
 
-def load_budget(name_or_path, freq=None):
+def load_budget(name_or_path, freq=None, bname=None):
     """Load GWINC Budget
 
     Accepts either the name of a built-in canonical budget (see
     gwinc.IFOS), the path to a budget package (directory) or module
     (ending in .py), or the path to an IFO Struct definition file (see
-    gwinc.Struct).
+    gwinc.Struct).  If an IFO Struct is specified, the base "aLIGO"
+    budget definition will be used.
+
+    If `bname` is specified the Budget class with that name will be
+    loaded from the budget module.  Otherwise, the Budget class with
+    the same name as the budget module will be load.
 
     If the budget is a package directory which includes an 'ifo.yaml'
     file the ifo Struct will be loaded from that file and assigned to
     the budget.ifo attribute.  If a Struct definition file is provided
     the base aLIGO budget definition will be assumed.
 
-    Returns an instantiated Budget object.  If a frequency array or
+    Returns the instantiated Budget object.  If a frequency array or
     frequency specification string (see `freq_from_spec()`) is
     provided, the budget will be instantiated with the provided array.
     If a frequency array is not provided and the Budget class
@@ -103,7 +108,7 @@ def load_budget(name_or_path, freq=None):
 
     if os.path.exists(name_or_path):
         path = name_or_path.rstrip('/')
-        bname, ext = os.path.splitext(os.path.basename(path))
+        base, ext = os.path.splitext(os.path.basename(path))
 
         if ext in Struct.STRUCT_EXT:
             logger.info("loading struct {}...".format(path))
@@ -112,6 +117,7 @@ def load_budget(name_or_path, freq=None):
             modname = 'gwinc.ifo.aLIGO'
 
         else:
+            bname = bname or base
             modname = path
 
     else:
@@ -120,10 +126,10 @@ def load_budget(name_or_path, freq=None):
                 name_or_path,
                 IFOS,
             ))
-        bname = name_or_path
+        bname = bname or name_or_path
         modname = 'gwinc.ifo.'+name_or_path
 
-    logger.info("loading module {}...".format(modname))
+    logger.info(f"loading budget {modname}.{bname}...")
     mod, modpath = load_module(modname)
     Budget = getattr(mod, bname)
     if freq is None:

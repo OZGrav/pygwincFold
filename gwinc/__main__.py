@@ -102,12 +102,21 @@ group.add_argument(
 group.add_argument(
     '--diff', '-d', metavar='IFO',
     help="show difference table between IFO and another IFO description (name or path) and exit (budget not calculated)")
+group.add_argument(
+    '--list', '-l', action='store_true',
+    help="list all elements of Budget (budget not calculated)")
 parser.add_argument(
     '--no-plot', '-np', action='store_false', dest='plot',
     help="suppress plotting")
 parser.add_argument(
+    '--bname', '-b',
+    help="name of top-level Budget class to load (defaults to IFO name)")
+parser.add_argument(
     'IFO',
     help="IFO name or path")
+parser.add_argument(
+    'subbudget', metavar='SUBBUDGET', nargs='?',
+    help="subbudget to plot; can be nested (e.g. 'Thermal.Substrate')")
 
 
 def main():
@@ -137,7 +146,7 @@ def main():
         except IndexError:
             parser.error(f"Improper frequency specification: {args.freq}")
         try:
-            budget = load_budget(args.IFO, freq=freq)
+            budget = load_budget(args.IFO, freq=freq, bname=args.bname)
         except RuntimeError as e:
             parser.exit(2, f"Error: {e}\n")
         name = budget.name
@@ -178,6 +187,18 @@ def main():
                 ov = repr(p[2])
                 print(fmt.format(k, v, ov))
         return
+    if args.list:
+        for i in budget.walk():
+            name = '.'.join([n.__class__.__name__ for n in i])
+            type = i[-1].__class__.__bases__[0].__name__
+            print(f'{name} ({type})')
+        return
+
+    if args.subbudget:
+        try:
+            budget[args.subbudget]
+        except KeyError:
+            parser.exit(3, f"Error: Unknown budget item '{args.subbudget}'.\n")
 
     out_data_files = set()
     out_plot_files = set()
@@ -239,11 +260,6 @@ def main():
         logger.info("calculating budget...")
         trace = budget.run(freq=freq)
 
-    if args.title:
-        plot_style['title'] = args.title
-    else:
-        plot_style['title'] = "GWINC Noise Budget: {}".format(name)
-
     if args.range:
         logger.info("calculating inspiral ranges...")
         metrics, H = inspiral_range.all_ranges(freq, trace.psd, **RANGE_PARAMS)
@@ -262,6 +278,15 @@ def main():
         )
     else:
         subtitle = None
+
+    if args.subbudget:
+        trace = trace[args.subbudget]
+        name += f': {args.subbudget}'
+
+    if args.title:
+        plot_style['title'] = args.title
+    else:
+        plot_style['title'] = "GWINC Noise Budget: {}".format(name)
 
     ##########
     # interactive

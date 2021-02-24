@@ -61,8 +61,23 @@ class BudgetTrace:
             raise AttributeError
 
     def __getitem__(self, name):
-        """get budget trace by name"""
-        return self._bdict[name]
+        """get budget trace by name
+
+        """
+        try:
+            name, rest = name.split('.', 1)
+            return self._bdict[name][rest]
+        except ValueError:
+            return self._bdict[name]
+
+    def get(self, key, default=None):
+        """get a (possibly nested) Trace item.
+
+        """
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def items(self):
         """iterator of budget (name, trace) tuples"""
