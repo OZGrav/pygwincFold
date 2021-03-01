@@ -296,8 +296,8 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     lossArm = sqrt(lambda_arm)
     lossSR = sqrt(lambda_SR)
 
-    Omega = 2*pi*f                               # Signal angular frequency [rad/s]
-    h_SQL = sqrt(8 * hbar / (m * (Omega * L)**2)) # SQL Strain
+    Omega = 2*pi*f                                          # Signal angular frequency [rad/s]
+    h_SQL = sqrt(8 * hbar * np.abs(sustf.tst_suscept)) / L  # SQL Strain
     K = - 16 * P * omega_0 / c**2 * sustf.tst_suscept
 
     # arm cavity
