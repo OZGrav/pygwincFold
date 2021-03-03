@@ -5,6 +5,7 @@ from __future__ import division
 import numpy as np
 from numpy import pi, sqrt, arctan, sin, cos, exp, log10, conj
 from copy import deepcopy
+from collections.abc import Sequence
 
 from .. import logger
 from .. import const
@@ -579,9 +580,13 @@ def propagate_noise_fc_ifo(f, ifo, Mifo, Mnoise, sqz_params, alpha):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Inject squeezed field into the IFO via some filter cavities
     if sqz_params.sqzType == 'Freq Dependent' and 'FilterCavity' in ifo.Squeezer:
-        logger.debug('  Applying %d input filter cavities' % np.atleast_1d(ifo.Squeezer.FilterCavity).size)
+        if not isinstance(ifo.Squeezer.FilterCavity, Sequence):
+            fc_list = [ifo.Squeezer.FilterCavity]
+        else:
+            fc_list = ifo.Squeezer.FilterCavity
+        logger.debug('  Applying %d input filter cavities' % len(fc_list))
         Mr, Msqz = sqzFilterCavityChain(
-            f, np.atleast_1d(ifo.Squeezer.FilterCavity), Msqz)
+            f, fc_list, Msqz)
 
     # apply the IFO dependent squeezing matrix to get the total noise
     # due to quantum fluctuations coming in from the AS port
@@ -739,14 +744,14 @@ def sqzFilterCavityChain(f, params, Mn, key='FC'):
     Mc = make2x2TF(np.ones(f.shape), 0, 0, 1)
 
     # loop through the filter cavites
-    for k in range(params.size):
+    for k, fc in enumerate(params):
         # extract parameters for this filter cavity
-        Lf = params[k].L
-        fdetune = params[k].fdetune
-        Ti = params[k].Ti
-        Te = params[k].Te
-        Lrt = params[k].Lrt
-        theta = params[k].Rot
+        Lf = fc.L
+        fdetune = fc.fdetune
+        Ti = fc.Ti
+        Te = fc.Te
+        Lrt = fc.Lrt
+        theta = fc.Rot
 
         # compute new Mn
         fc_key = key + str(k)
