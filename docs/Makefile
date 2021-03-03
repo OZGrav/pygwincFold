@@ -58,11 +58,6 @@ singlehtml:
 	@echo
 	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."
 
-optimizer-dcc:
-	$(SPHINXBUILD) -D master_doc="optimizer/overview" -E -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/optimizer-dcc
-	@echo
-	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."
-
 pickle:
 	$(SPHINXBUILD) -b pickle $(ALLSPHINXOPTS) $(BUILDDIR)/pickle
 	@echo
