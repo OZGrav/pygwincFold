@@ -46,10 +46,6 @@ def dictlist2recarray(l):
     out = np.array(values, dtype=dtypes)
     return out.view(np.recarray)
 
-
-#very unique object that serves as a key meaning "Clear this value during update"
-CLEAR_KEY = ("CLEAR", lambda : None)
-
 class Struct(object):
     """Matlab struct-like object
 
@@ -66,9 +62,6 @@ class Struct(object):
     file, a nested dict, or a MATLAB struct object.
 
     """
-    #very unique object that serves as a key meaning "Clear this value during update"
-    CLEAR_KEY = CLEAR_KEY
-
     STRUCT_EXT = ['.yaml', '.yml', '.mat', '.m']
     """accepted extension types for struct files"""
 
@@ -141,7 +134,7 @@ class Struct(object):
     def update(
             self, other,
             overwrite_atoms=False,
-            clear_key=CLEAR_KEY,
+            clear_test=lambda v : False,
             value_types=(str, Number, np.ndarray),
             allow_unknown_types=True,
     ):
@@ -151,13 +144,13 @@ class Struct(object):
         do this.
 
         None's are not inserted, and are always overwritten.
-        if other contains any values of exactly clear_key
-        (default to Struct.CLEAR_KEY), then that value is cleared in the updated
-        self. override the argument clear_key=None to clear null values.
+        If a value of other returns true on clear_test(value) then that value is
+        cleared in the updated self. override the argument
+        clear_test=lambda v: v is None to clear null values.
         """
         kw = dict(
             overwrite_atoms=overwrite_atoms,
-            clear_key=clear_key,
+            clear_test=clear_test,
             value_types=value_types,
             allow_unknown_types=allow_unknown_types,
         )
@@ -168,11 +161,11 @@ class Struct(object):
             and the type of other_v
             """
             self_v = self[k]
-            if other_v is CLEAR_KEY:
+            if clear_test(other_v):
                 if isinstance(self, Mapping):
                     del self[k]
                 else:
-                    raise RuntimeError("clear_key deletions not allowed in sequences like lists")
+                    raise RuntimeError("clear_test deletions not allowed in sequences like lists")
             elif other_v is None:
                 #don't update on None
                 pass
@@ -247,7 +240,7 @@ class Struct(object):
                 update_element(self, k, other_v)
             else:
                 #k not in self, so just assign
-                if other_v is CLEAR_KEY:
+                if clear_test(other_v):
                     pass
                 elif isinstance(other_v, value_types):
                     #value type to directly assign
@@ -307,7 +300,7 @@ class Struct(object):
                             v = np.array(v)
                 # FIXME: there must be a better way to just match all
                 # numeric scalar types
-                elif isinstance(v, (int, float, np.int, np.float)):
+                elif isinstance(v, Number):
                     v = float(v)
                 d[k] = v
         return d
