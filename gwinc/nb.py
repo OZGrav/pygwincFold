@@ -521,6 +521,8 @@ class Budget(Noise):
         """
         if _precomp is None:
             _precomp = dict()
+        # must copy first if using mul-in-place or we clobber other cals
+        calibration = np.ones_like(self.freq) * calibration
         for cal in self._noise_cals[name]:
             if _cals:
                 calibration *= _cals[cal]
