@@ -19,12 +19,16 @@ def plot_trace(
 
     total = trace.asd
     ylim = [min(total)/10, max(total)]
-    style = dict(
-        color='#000000',
-        alpha=0.6,
-        linewidth=4,
-    )
+
+    style = dict(alpha=0.6)
+
     style.update(getattr(trace, 'style', {}))
+    if 'color' not in style and 'c' not in style:
+        style['color'] = '#000000'
+    if 'alpha' not in style:
+        style['alpha'] = 0.6
+    if 'linewidth' not in style and 'lw' not in style:
+        style['linewidth'] = 4
     if 'label' in style:
         style['label'] = 'Total ' + style['label']
     else:
@@ -35,16 +39,24 @@ def plot_trace(
         style = strace.style
         if 'label' not in style:
             style['label'] = name
-        elif 'linewidth' not in style:
+        if 'linewidth' not in style and 'lw' not in style:
             style['linewidth'] = 3
         ax.loglog(trace.freq, strace.asd, **style)
 
     ax.grid(
         True,
-        which='both',
+        which='major',
         linewidth=0.5,
         ls='-',
         alpha=0.5,
+    )
+
+    ax.grid(
+        True,
+        which='minor',
+        linewidth=0.5,
+        ls='-',
+        alpha=0.2,
     )
 
     ax.legend(
