@@ -8,7 +8,7 @@ from . import (
     __version__,
     IFOS,
     DEFAULT_FREQ,
-    freq_from_spec,
+    InvalidFrequencySpec,
     load_budget,
     logger,
 )
@@ -58,7 +58,6 @@ See the inspiral_range package documentation for details.
 """
 
 IFO = 'aLIGO'
-FREQ = '5:3000:6000'
 RANGE_PARAMS = dict(m1=1.4, m2=1.4)
 DATA_SAVE_FORMATS = ['.hdf5', '.h5']
 
@@ -142,11 +141,9 @@ def main():
 
     else:
         try:
-            freq = freq_from_spec(args.freq)
-        except IndexError:
-            parser.error(f"Improper frequency specification: {args.freq}")
-        try:
-            budget = load_budget(args.IFO, freq=freq, bname=args.bname)
+            budget = load_budget(args.IFO, freq=args.freq, bname=args.bname)
+        except InvalidFrequencySpec as e:
+            parser.error(e)
         except RuntimeError as e:
             parser.exit(2, f"Error: {e}\n")
         name = budget.name
@@ -258,7 +255,7 @@ def main():
 
     if not trace:
         logger.info("calculating budget...")
-        trace = budget.run(freq=freq)
+        trace = budget.run()
 
     if args.range:
         logger.info("calculating inspiral ranges...")
