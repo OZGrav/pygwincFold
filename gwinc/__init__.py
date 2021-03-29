@@ -27,6 +27,8 @@ logger = logging.getLogger('gwinc')
 
 DEFAULT_FREQ = '5:3000:6000'
 
+class InvalidFrequencySpec(Exception):
+    pass
 
 def freq_from_spec(spec=None):
     """logarithmicly spaced frequency array, based on specification string
@@ -41,13 +43,16 @@ def freq_from_spec(spec=None):
     elif spec is None:
         spec = DEFAULT_FREQ
     fspec = spec.split(':')
-    if len(fspec) == 2:
-        fspec = fspec[0], DEFAULT_FREQ.split(':')[1], fspec[1]
-    return np.logspace(
-        np.log10(float(fspec[0])),
-        np.log10(float(fspec[2])),
-        int(fspec[1]),
-    )
+    try:
+        if len(fspec) == 2:
+            fspec = fspec[0], DEFAULT_FREQ.split(':')[1], fspec[1]
+        return np.logspace(
+            np.log10(float(fspec[0])),
+            np.log10(float(fspec[2])),
+            int(fspec[1]),
+        )
+    except (ValueError, IndexError):
+        raise InvalidFrequencySpec(f'Improper frequency specification: {spec}')
 
 
 def load_module(name_or_path):
