@@ -332,6 +332,9 @@ class Budget(Noise):
     references = []
     """List of reference noise classes, or (ref, cal) tuples"""
 
+    accumulate = quadsum
+    """Method used to calculate total noise trace"""
+
     def __init__(self, freq=None, noises=None, **kwargs):
         """Initialize Budget object.
 
@@ -565,7 +568,7 @@ class Budget(Noise):
                 _precomp=_precomp,
             )
             budget.append(trace)
-        total = quadsum([trace.psd for trace in budget if trace.name in self._budget_noises])
+        total = type(self).accumulate([trace.psd for trace in budget if trace.name in self._budget_noises])
         return self._make_trace(
             psd=total, budget=budget
         )
