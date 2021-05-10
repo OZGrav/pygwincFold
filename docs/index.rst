@@ -30,6 +30,7 @@ Contents
    :maxdepth: 2
 
    install
-   quickstart
+   api
+   dev
 
 

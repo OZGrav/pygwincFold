@@ -1,5 +1,6 @@
 #for docs and setup.py outputs
 build/
+tresults/
 # test cache
 gwinc/test/cache
 
