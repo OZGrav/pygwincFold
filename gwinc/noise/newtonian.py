@@ -87,6 +87,7 @@ def gravg_rayleigh(f, seismic):
     :returns: displacement noise power spectrum at :f:, in meters
 
     Following Harms LRR: https://doi.org/10.1007/lrr-2015-3
+    and Amann et al.: https://doi.org/10.1063/5.0018414
 
     """
     fk = seismic.KneeFrequency
@@ -119,8 +120,19 @@ def gravg_rayleigh(f, seismic):
     zeta = sqrt(qzP / qzS)
 
     gnu = k * (1 - zeta) / (qzP - k * zeta)
+    
+    if h >= 0:
+        # Harms LRR
+        n = (2 * pi * const.G * rho * exp(-h * k) * gnu)**2 * ground**2 / w**4
 
-    n = (2 * pi * const.G * rho * exp(-h * k) * gnu)**2 * ground**2 / w**4
+    else:
+        # Amann et al., eqs. 2-6 (note h is there defined as depth)
+        # The "gamma" cancellation factor is assumed to be 1
+        r0 = k * (1 - zeta)
+        sh = -k * (1 + zeta) * exp(h * k)
+        bh = (2 / 3) * (2 * k * exp(h * qzP) + zeta * qzS * exp(h * qzS))
+        Rcal = np.abs((sh + bh) / r0)**2
+        n = 4 * (sqrt(2) * pi * const.G * rho)**2 * Rcal * ground**2 / w**4
 
     n /= omicron**2
 
