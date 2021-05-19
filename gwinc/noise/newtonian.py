@@ -126,13 +126,13 @@ def gravg_rayleigh(f, seismic):
         n = (2 * pi * const.G * rho * exp(-h * k) * gnu)**2 * ground**2 / w**4
 
     else:
-        # Amann et al., eqs. 2-6 (note h is there defined as depth)
-        # The "gamma" cancellation factor is assumed to be 1
+        # Amann et al., eqs. 2-6. Note h is there defined as depth;
+        # We define it as height.
         r0 = k * (1 - zeta)
         sh = -k * (1 + zeta) * exp(h * k)
         bh = (2 / 3) * (2 * k * exp(h * qzP) + zeta * qzS * exp(h * qzS))
         Rcal = np.abs((sh + bh) / r0)**2
-        n = 4 * (sqrt(2) * pi * const.G * rho)**2 * Rcal * ground**2 / w**4
+        n = 4 * (sqrt(2) * pi * const.G * rho * gnu)**2 * Rcal * ground**2 / w**4
 
     n /= omicron**2
 
