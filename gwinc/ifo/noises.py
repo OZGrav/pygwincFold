@@ -534,7 +534,6 @@ class SuspensionThermalHorizTM(nb.Noise):
 
     @nb.precomp(sustf=precomp_suspension)
     def calc(self, sustf):
-        precomp_suspension(self.freq, self.ifo)
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 3, 'horiz')
         return abs(n) * 4
