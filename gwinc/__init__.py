@@ -27,8 +27,10 @@ logger = logging.getLogger('gwinc')
 
 DEFAULT_FREQ = '5:3000:6000'
 
+
 class InvalidFrequencySpec(Exception):
     pass
+
 
 def freq_from_spec(spec=None):
     """logarithmicly spaced frequency array, based on specification string
@@ -132,9 +134,9 @@ def load_budget(name_or_path, freq=None, bname=None):
                 IFOS,
             ))
         bname = bname or name_or_path
-        modname = 'gwinc.ifo.'+name_or_path
+        modname = 'gwinc.ifo.' + name_or_path
 
-    logger.info(f"loading budget {modname}.{bname}...")
+    logger.info(f"loading budget '{bname}' from {modname}...")
     mod, modpath = load_module(modname)
     Budget = getattr(mod, bname)
     if freq is None:
