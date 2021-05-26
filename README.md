@@ -50,28 +50,29 @@ figures of merit for gravitational wave detector budgets.  See the
 
 `pygwinc` provides a command line interface that can be used to
 calculate and plot the various canonical IFO noise budgets described
-above:
+above.  For most distributions this should be available via
+`gwinc` at the command line, or `python3 -m gwinc` otherwise:
 ```shell
-$ python3 -m gwinc aLIGO
+$ gwinc aLIGO
 ```
-Or [Custom budgets](#budget-interface) may also be processed by providing
+Or [custom budgets](#budget-interface) may also be processed by providing
 the path to the budget module/package:
 ```shell
-$ python3 -m gwinc path/to/mybudget
+$ gwinc path/to/mybudget
 ```
 
 Budget plots can be saved in various formats (.png, .svg, .pdf):
 ```shell
-$ python3 -m gwinc --save aLIGO.png aLIGO
+$ gwinc --save aLIGO.png aLIGO
 ```
 Or trace data can be saved to an
 [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) file:
 ```shell
-$ python3 -m gwinc --save aLIGO.hdf5 aLIGO
+$ gwinc --save aLIGO.hdf5 aLIGO
 ```
 Trace HDF5 files can also be plotted directly:
 ```shell
-$ python3 -m gwinc aLIGO.hdf5
+$ gwinc aLIGO.hdf5
 ```
 
 The `--range` option can be used to include the values of various
@@ -80,17 +81,17 @@ inspiral ranges for the overall noise in the output.
 IFO parameters can be manipulated from the command line with the
 `--ifo` option:
 ```shell
-$ python3 -m gwinc aLIGO --ifo Optics.SRM.Tunephase=3.14
+$ gwinc aLIGO --ifo Optics.SRM.Tunephase=3.14
 ```
 You can also dump the IFO parameters to a [YAML-formatted parameter
 file](#yaml-parameter-files):
 ```shell
-$ python3 -m gwinc --yaml aLIGO > my_aLIGO.yaml
+$ gwinc --yaml aLIGO > my_aLIGO.yaml
 $ edit my_aLIGO.yaml
-$ python3 -m gwinc -d my_aLIGO.yaml aLIGO
+$ gwinc -d my_aLIGO.yaml aLIGO
                              aLIGO    my_aLIGO.yaml
 Materials.Coating.Philown    5e-05            3e-05
-$ python3 -m gwinc my_aLIGO.yaml
+$ gwinc my_aLIGO.yaml
 ```
 Stand-alone YAML files assume the nominal ['aLIGO' budget
 description](gwinc/ifo/aLIGO).
@@ -99,7 +100,7 @@ The command line interface also includes an "interactive" mode which
 provides an [IPython](https://ipython.org/) shell for interacting with
 a processed budget:
 ```shell
-$ python3 -m gwinc -i Aplus
+$ gwinc -i Aplus
 GWINC interactive shell
 
 The 'ifo' Struct and 'trace' data are available for inspection.
@@ -115,7 +116,7 @@ In [1]:
 
 See command help for more info:
 ```shell
-$ python3 -m gwinc -h
+$ gwinc --help
 ```
 
 
@@ -382,10 +383,9 @@ calculate common derived values needed in multiple `BudgetItems`.
 They are specified using the `nb.precomp` decorator applied to the
 `BudgetItem.calc()` method.  These functions are executed during the
 `update()` method call, supplied with the budget `freq` and `ifo`
-attributes as input arguments, and are expected to update the `ifo`
-struct.  The execution state of the precomp functions is cached at the
-Budget level, to prevent needlessly re-calculating them multiple
-times.  For example:
+attributes as input arguments.  The execution state of the precomp
+functions is cached at the Budget level, to prevent needlessly
+re-calculating them multiple times.  For example:
 ```python
 from gwinc import nb
 
