@@ -148,9 +148,9 @@ def load_budget(name_or_path, freq=None, bname=None):
                 IFOS,
             ))
         bname = bname or name_or_path
-        modname = 'gwinc.ifo.'+name_or_path
+        modname = 'gwinc.ifo.' + name_or_path
 
-    logger.info(f"loading budget {modname}.{bname}...")
+    logger.info(f"loading budget '{bname}' from {modname}...")
     mod, modpath = load_module(modname)
     Budget = getattr(mod, bname)
     if freq is None:
