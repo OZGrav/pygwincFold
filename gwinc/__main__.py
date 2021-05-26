@@ -148,6 +148,7 @@ def main():
             parser.exit(2, f"Error: {e}\n")
         name = budget.name
         ifo = budget.ifo
+        freq = budget.freq
         plot_style = getattr(budget, 'plot_style', {})
         trace = None
 
