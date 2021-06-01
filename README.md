@@ -139,7 +139,7 @@ provided to `load_budget()` either in the form of a numpy array:
 >>> budget = gwinc.load_budget('aLIGO', freq=freq)
 ```
 or frequency specification string ('FLO:[NPOINTS:]FHI'):
-```
+```python
 >>> budget = gwinc.load_budget('aLIGO', freq='10:1000:1000')
 ```
 
