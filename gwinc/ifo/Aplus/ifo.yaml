@@ -33,9 +33,30 @@ Infrastructure:
   Length: 3995                    # m
   Temp: 290                       # K
   ResidualGas:
-    pressure: 4.0e-7              # Pa
-    mass: 3.35e-27                # kg; Mass of H_2 (ref. 10)
-    polarizability: 7.8e-31       # m^3
+    H2:
+      BeamtubePressure: 2.7e-7      # Pa
+      ChamberPressure: 2.7e-7       # Pa
+      mass: 3.35e-27                # kg; Mass of H_2 (ref. 10)
+      polarizability: 7.8e-31       # m^3
+
+    N2:
+      BeamtubePressure: 1.33e-8
+      ChamberPressure: 1.33e-8
+      mass: 4.65e-26
+      polarizability: 1.71e-30
+
+    H2O:
+      BeamtubePressure: 1.33e-8
+      ChamberPressure: 1.33e-8
+      mass: 2.99e-26
+      polarizability: 1.50e-30
+
+    O2:
+      BeamtubePressure: 1e-9
+      ChamberPressure: 1e-9
+      mass: 5.31e-26
+      polarizability: 1.56e-30
+
 
 TCS:
   # The presumably dominant effect of a thermal lens in the ITMs is an increased
