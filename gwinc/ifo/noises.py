@@ -752,26 +752,204 @@ class SubstrateThermoElastic(nb.Noise):
 # residual gas
 #########################
 
-class ExcessGas(nb.Noise):
+# FIXME HACK: it's unclear if a phase noise in the arms like
+# the excess gas noise should get the same dhdL strain
+# calibration as the other displacement noises.  However, we
+# would like to use the one Strain calibration for all noises,
+# so we need to divide by the sinc_sqr here to undo the
+# application of the dhdl in the Strain calibration.  But this
+# is ultimately a superfluous extra calculation with the only
+# to provide some simplication in the Budget definition, so
+# should be re-evaluated at some point.
+
+
+def calc_total_residual_gas_damping(f, ifo, species, sustf):
+    """Total residual gas damping from all four test masses
+
+    :f: frequency array in Hz
+    :ifo: gwinc IFO structure
+    :species: molecular species structure
+    :sustf: suspension transfer function structure
+
+    :returns: displacement noise
+    """
+    squeezed_film = ifo.Infrastructure.ResidualGas.get('SqueezedFilm', Struct())
+
+    if squeezed_film is None:
+        raise ValueError('Must specify either excess damping or a gap')
+
+    # Calculate squeezed film for ETM and ITM seperately if either is given
+    # explicitly. If only one is given, it is not computed for the other one.
+    if ('ETM' in squeezed_film) or ('ITM' in squeezed_film):
+        squeezed_film_ETM = squeezed_film.get('ETM', Struct())
+        squeezed_film_ITM = squeezed_film.get('ITM', Struct())
+        n_ETM = noise.residualgas.residual_gas_damping_test_mass(
+            f, ifo, species, sustf, squeezed_film_ETM)
+        n_ITM = noise.residualgas.residual_gas_damping_test_mass(
+            f, ifo, species, sustf, squeezed_film_ITM)
+        n = 2 * (n_ETM + n_ITM)
+
+    # Otherwise the same calculation is used for both.
+    else:
+        n = 4 * noise.residualgas.residual_gas_damping_test_mass(
+            f, ifo, species, sustf, squeezed_film)
+
+    return n
+
+
+class ExcessGasScatteringH2(nb.Noise):
+    """Excess gas scattering for H2
+
+    """
+    style = dict(
+        label='H$_2$ scattering',
+        color='xkcd:red orange'
+    )
+
+    def calc(self):
+        cavity = arm_cavity(self.ifo)
+        species = self.ifo.Infrastructure.ResidualGas.H2
+        n = noise.residualgas.residual_gas_scattering_arm(
+            self.freq, self.ifo, cavity, species)
+        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+        return n * 2 / sinc_sqr
+
+
+class ExcessGasScatteringN2(nb.Noise):
+    """Excess gas scattering for N2
+
+    """
+    style = dict(
+        label='N$_2$ scattering',
+        color='xkcd:emerald'
+    )
+
+    def calc(self):
+        cavity = arm_cavity(self.ifo)
+        species = self.ifo.Infrastructure.ResidualGas.N2
+        n = noise.residualgas.residual_gas_scattering_arm(
+            self.freq, self.ifo, cavity, species)
+        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+        return n * 2 / sinc_sqr
+
+
+class ExcessGasScatteringH2O(nb.Noise):
+    """Excess gas scattering for H2O
+
+    """
+    style = dict(
+        label='H$_2$O scattering',
+        color='xkcd:water blue'
+    )
+
+    def calc(self):
+        cavity = arm_cavity(self.ifo)
+        species = self.ifo.Infrastructure.ResidualGas.H2O
+        n = noise.residualgas.residual_gas_scattering_arm(
+            self.freq, self.ifo, cavity, species)
+        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+        return n * 2 / sinc_sqr
+
+
+class ExcessGasScatteringO2(nb.Noise):
+    """Excess gas scattering for O2
+
+    """
+    style = dict(
+        label='O$_2$ scattering',
+        color='xkcd:grey'
+    )
+
+    def calc(self):
+        cavity = arm_cavity(self.ifo)
+        species = self.ifo.Infrastructure.ResidualGas.O2
+        n = noise.residualgas.residual_gas_scattering_arm(
+            self.freq, self.ifo, cavity, species)
+        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+        return n * 2 / sinc_sqr
+
+
+class ExcessGasDampingH2(nb.Noise):
+    """Residual gas damping for H2
+
+    """
+    style = dict(
+        label='H$_2$ damping',
+        color='xkcd:red orange',
+        linestyle='--',
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        species = self.ifo.Infrastructure.ResidualGas.H2
+        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
+
+
+class ExcessGasDampingN2(nb.Noise):
+    """Excess gas damping for N2
+
+    """
+    style = dict(
+        label='N$_2$ damping',
+        color='xkcd:emerald',
+        linestyle='--',
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        species = self.ifo.Infrastructure.ResidualGas.N2
+        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
+
+
+class ExcessGasDampingH2O(nb.Noise):
+    """Excess gas damping for H2O
+
+    """
+    style = dict(
+        label='H$_2$O damping',
+        color='xkcd:water blue',
+        linestyle='--',
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        species = self.ifo.Infrastructure.ResidualGas.H2O
+        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
+
+
+class ExcessGasDampingO2(nb.Noise):
+    """Excess gas damping for O2
+
+    """
+    style = dict(
+        label='O$_2$ damping',
+        color='xkcd:grey',
+        linestyle='--',
+    )
+
+    @nb.precomp(sustf=precomp_suspension)
+    def calc(self, sustf):
+        species = self.ifo.Infrastructure.ResidualGas.O2
+        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
+
+
+class ExcessGas(nb.Budget):
     """Excess Gas
 
     """
     style = dict(
-        label='Excess Gas',
+        label='Residual Gas',
         color='#add00d',
-        linestyle='--',
+        linestyle='-',
     )
 
-    def calc(self):
-        n = noise.residualgas.residual_gas_cavity(self.freq, self.ifo)
-        # FIXME HACK: it's unclear if a phase noise in the arms like
-        # the excess gas noise should get the same dhdL strain
-        # calibration as the other displacement noises.  However, we
-        # would like to use the one Strain calibration for all noises,
-        # so we need to divide by the sinc_sqr here to undo the
-        # application of the dhdl in the Strain calibration.  But this
-        # is ultimately a superfluous extra calculation with the only
-        # to provide some simplication in the Budget definition, so
-        # should be re-evaluated at some point.
-        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
-        return n * 2 / sinc_sqr
+    noises = [
+        ExcessGasScatteringH2,
+        ExcessGasScatteringN2,
+        ExcessGasScatteringH2O,
+        ExcessGasScatteringO2,
+        ExcessGasDampingH2,
+        ExcessGasDampingN2,
+        ExcessGasDampingH2O,
+        ExcessGasDampingO2,
+    ]
