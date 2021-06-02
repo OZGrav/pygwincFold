@@ -78,9 +78,6 @@ class Substrate(nb.Budget):
     ]
 
 
-ExcessGas.style['linestyle'] = '-'
-
-
 class CE2silicon(nb.Budget):
 
     name = 'Cosmic Explorer 2 (Silicon)'

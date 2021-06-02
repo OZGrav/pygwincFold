@@ -26,10 +26,32 @@ Infrastructure:
   Length: 40000              # m; whoa
   Temp: 293                  # K; Temperature of the Vacuum
   ResidualGas:
-    pressure: 4.0e-7         # Pa
-    mass: 3.35e-27           # kg,   Mass of H_2 (ref. 10)
-    polarizability: 0.81e-30 # m^3  (H_2, DOI: 10.1116/1.1479360)
-  BuildingRadius: 5          # m
+    # polarizabilities from https://cccbdb.nist.gov/pollistx.asp
+    H2:
+      BeamtubePressure: 4.4e-8      # Pa
+      ChamberPressure: 4.1e-7       # Pa
+      mass: 3.35e-27                # kg; Mass of H_2 (ref. 10)
+      polarizability: 7.87e-31      # m^3;
+
+    N2:
+      BeamtubePressure: 2.5e-9
+      ChamberPressure: 1.1e-7
+      mass: 4.65e-26
+      polarizability: 1.71e-30
+
+    H2O:
+      BeamtubePressure: 4.0e-9
+      ChamberPressure: 1.4e-7
+      mass: 2.99e-26
+      polarizability: 1.50e-30
+
+    O2:
+      BeamtubePressure: 2.8e-9
+      ChamberPressure: 1.0e-7
+      mass: 5.31e-26
+      polarizability: 1.56e-30
+
+  BuildingRadius: 10         # m
 
 
 TCS:
