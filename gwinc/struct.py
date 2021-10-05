@@ -120,6 +120,15 @@ class Struct(object):
         If a value of other returns true on clear_test(value) then that value is
         cleared in the updated self. override the argument
         clear_test=lambda v: v is None to clear null values.
+
+        overwrite_atoms is an boolean argument which allows overwriting values
+        with different types, like converting a float to a Struct, it defaults
+        to False to disallow this often confusing behavior, but is sometimes
+        necessary.
+
+        allow_unknown_types allows updates and assignments of types other than
+        Structs, Lists, floats, strings, and numpy arrays of elements. It
+        defaults to True to be permissive.
         """
         kw = dict(
             overwrite_atoms=overwrite_atoms,
