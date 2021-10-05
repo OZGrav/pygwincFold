@@ -1,17 +1,22 @@
+"""
+"""
+
+from collections.abc import Mapping, Sequence, MutableSequence
+#base class for numbers
+from numbers import Number
+
 import os
 import re
 import io
 import yaml
+
 import numpy as np
-from collections.abc import Mapping, Sequence, MutableSequence
-#base class for numbers
-from numbers import Number
 from scipy.io import loadmat
 from scipy.io.matlab.mio5_params import mat_struct
 
 
-#this is an assumption made for the recursive update method later, so check here
-assert(not issubclass(np.ndarray, Sequence))
+# this is an assumption made for the recursive update method later, so check here
+assert not issubclass(np.ndarray, Sequence)
 
 
 # HACK: fix loading Number in scientific notation
@@ -45,6 +50,7 @@ def dictlist2recarray(l):
     values = [tuple(el.values()) for el in l]
     out = np.array(values, dtype=dtypes)
     return out.view(np.recarray)
+
 
 class Struct(object):
     """Matlab struct-like object
@@ -170,7 +176,7 @@ class Struct(object):
                 #don't update on None
                 pass
             elif isinstance(other_v, value_types):
-                #other is a value type, not a collection
+                # other is a value type, not a collection
                 if isinstance(self_v, (Sequence, Mapping)):
                     raise RuntimeError("struct update is an incompatible storage type (e.g. updating a value into a dict or list)")
                 else:
@@ -192,9 +198,9 @@ class Struct(object):
                 else:
                     raise RuntimeError("struct update is an incompatible storage type (e.g. updating a dict into a list)")
             elif isinstance(other_v, Sequence):
-                #this check MUST come after value_types, or string is included
+                # this check MUST come after value_types, or string is included
 
-                #make mutable
+                # make mutable
                 if not isinstance(self_v, MutableSequence):
                     self_v = list(self_v)
 
@@ -204,7 +210,7 @@ class Struct(object):
                     else:
                         self_v = self[k] = other_v
                 elif isinstance(self_v, Sequence):
-                    #the string check MUST come before Sequence
+                    # the string check MUST come before Sequence
                     list_update(self_v, other_v)
                 elif isinstance(self_v, Mapping):
                     raise RuntimeError("struct update is an incompatible storage type (e.g. updating a list into a dict)")
@@ -213,7 +219,7 @@ class Struct(object):
                 else:
                     raise RuntimeError("struct update is an incompatible storage type (e.g. updating a value into a list)")
             else:
-                #other is an unknown value type, not a collection
+                # other is an unknown value type, not a collection
                 if not allow_unknown_types:
                     raise RuntimeError("Unknown type assigned during recursive .update()")
 
@@ -228,35 +234,35 @@ class Struct(object):
             helper function for the recursive update
             """
             N_min = min(len(self_v), len(other_v))
-            #make self as long as other, filled with None's so that assignment occurs
+            # make self as long as other, filled with None's so that assignment occurs
             self_v.extend([None] * (len(other_v) - N_min))
             for idx, sub_other_v in enumerate(other_v):
                 update_element(self_v, idx, sub_other_v)
             return
 
-        #actual code loop for the recursive update
+        # actual code loop for the recursive update
         for k, other_v in other.items():
             if k in self:
                 update_element(self, k, other_v)
             else:
-                #k not in self, so just assign
+                # k not in self, so just assign
                 if clear_test(other_v):
                     pass
                 elif isinstance(other_v, value_types):
-                    #value type to directly assign
+                    # value type to directly assign
                     self[k] = other_v
                 elif isinstance(other_v, Mapping):
                     self_v = self[k] = Struct()
-                    #use update so that it is a deepcopy
+                    # use update so that it is a deepcopy
                     self_v.update(other_v, **kw)
                 elif isinstance(other_v, Sequence):
-                    #MUST come after the value types check, or strings included
+                    # MUST come after the value types check, or strings included
                     self_v = self[k] = []
                     list_update(self_v, other_v)
                 else:
                     if not allow_unknown_types:
                         raise RuntimeError("Unknown type assigned during recursive .update()")
-                    #value type to directly assign
+                    # value type to directly assign
                     self[k] = other_v
 
     def items(self):
@@ -339,7 +345,7 @@ class Struct(object):
             s.pretty(k)
             s.text(': ')
             s.pretty(v)
-            if idx+1 < len(self):
+            if idx + 1 < len(self):
                 s.text(',')
                 s.breakable()
         s.end_group(8, '})')
@@ -357,7 +363,7 @@ class Struct(object):
                 continue
             if isinstance(v, (dict, Struct)):
                 for sk, sv in v.walk():
-                    yield k+'.'+sk, sv
+                    yield k + '.' + sk, sv
             else:
                 try:
                     for i, vv in enumerate(v):
@@ -401,7 +407,10 @@ class Struct(object):
         from yaml are not distinguished in this diff
         """
         diffs = []
-        UNIQUE = lambda x : None
+
+        # this is just a funky structure that will be guaranteed unique
+        UNIQUE = (lambda x: None, )
+
         if isinstance(other, dict):
             other = Struct(other)
         for k, ov in other.walk():
@@ -413,8 +422,8 @@ class Struct(object):
                     else:
                         diffs.append((k, v, ov))
             except TypeError:
-                #sometimes the deep keys go through unmappable objects
-                #which TypeError if indexed
+                # sometimes the deep keys go through unmappable objects
+                # which TypeError if indexed
                 diffs.append((k, None, ov))
         for k, v in self.walk():
             try:
@@ -448,7 +457,12 @@ class Struct(object):
             elif isinstance(v, (list, np.ndarray)):
                 if isinstance(v, list):
                     v = np.array(v)
-                v = np.array2string(v, separator='', max_line_width=np.Inf, formatter={'all': lambda x: "{:0.6e} ".format(x)})
+                v = np.array2string(
+                    v,
+                    separator='',
+                    max_line_width=np.Inf,
+                    formatter={'all': lambda x: "{:0.6e} ".format(x)}
+                )
                 base = 's'
             else:
                 base = 's'
@@ -541,6 +555,4 @@ class Struct(object):
                 raise IOError("Unknown file type: {}".format(ext))
 
 
-
 Mapping.register(Struct)
-

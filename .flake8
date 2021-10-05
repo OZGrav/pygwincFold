@@ -1,0 +1,5 @@
+
+[flake8]
+#E251: spaces around arguments
+ignore = 
+max-line-length = 140
