@@ -14,10 +14,6 @@ from scipy.io import loadmat
 from scipy.io.matlab.mio5_params import mat_struct
 
 
-# this is an assumption made for the recursive update method later, so check here
-assert not issubclass(np.ndarray, Sequence)
-
-
 class Struct(object):
     """Matlab struct-like object
 
@@ -107,7 +103,6 @@ class Struct(object):
             self, other,
             overwrite_atoms=False,
             clear_test=lambda v: False,
-            value_types=(str, Number, np.ndarray),
             allow_unknown_types=True,
     ):
         """Update Struct from other Struct or dict.
@@ -115,15 +110,16 @@ class Struct(object):
         deepcopy of the dict/list structure. It inspects the internal types to
         do this.
 
-        None's are not inserted, and are always overwritten.
+        None's are not inserted and are always overwritten.
+
         If a value of other returns true on clear_test(value) then that value is
         cleared in the updated self. override the argument
         clear_test=lambda v: v is None to clear null values.
         """
+        value_types = (str, Number, np.ndarray),
         kw = dict(
             overwrite_atoms=overwrite_atoms,
             clear_test=clear_test,
-            value_types=value_types,
             allow_unknown_types=allow_unknown_types,
         )
 
@@ -137,32 +133,37 @@ class Struct(object):
                 if isinstance(self, Mapping):
                     del self[k]
                 else:
-                    raise RuntimeError("clear_test deletions not allowed in sequences like lists")
+                    raise StructTypingError("clear_test deletions not allowed in sequences like lists")
             elif other_v is None:
                 # don't update on None
                 pass
             elif isinstance(other_v, value_types):
                 # other is a value type, not a collection
-                if isinstance(self_v, (Sequence, Mapping)):
-                    raise RuntimeError("struct update is an incompatible storage type (e.g. updating a value into a dict or list)")
-                else:
+                if isinstance(self_v, value_types):
                     self[k] = other_v
+                elif isinstance(self_v, (Sequence, Mapping)):
+                    raise StructTypingError("struct update is an incompatible storage type (e.g. updating a value into a dict or list)")
+                else:
+                    if not allow_unknown_types:
+                        raise StructTypingError("Unknown type assignment during recursive .update()")
+                    else:
+                        self[k] = other_v
             elif isinstance(other_v, Mapping):
                 if isinstance(self_v, value_types):
                     if not overwrite_atoms:
-                        raise RuntimeError("struct update is an incompatible storage type (e.g. updating a dict into a float)")
+                        raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a float)")
                     else:
                         self_v = self[k] = Struct()
                         self_v.update(other_v, **kw)
                 elif isinstance(self_v, Sequence):
-                    raise RuntimeError("struct update is an incompatible storage type (e.g. updating a dict into a list)")
+                    raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a list)")
                 elif isinstance(self_v, Mapping):
                     self[k].update(other_v, **kw)
                 elif self_v is None:
                     self_v = self[k] = Struct()
                     self_v.update(other_v, **kw)
                 else:
-                    raise RuntimeError("struct update is an incompatible storage type (e.g. updating a dict into a list)")
+                    raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a list)")
             elif isinstance(other_v, Sequence):
                 # this check MUST come after value_types, or string is included
 
@@ -172,25 +173,25 @@ class Struct(object):
 
                 if isinstance(self_v, value_types):
                     if not overwrite_atoms:
-                        raise RuntimeError("struct update is an incompatible storage type (e.g. updating a dict into a string)")
+                        raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a string)")
                     else:
                         self_v = self[k] = other_v
                 elif isinstance(self_v, Sequence):
                     # the string check MUST come before Sequence
                     list_update(self_v, other_v)
                 elif isinstance(self_v, Mapping):
-                    raise RuntimeError("struct update is an incompatible storage type (e.g. updating a list into a dict)")
+                    raise StructTypingError("struct update is an incompatible storage type (e.g. updating a list into a dict)")
                 elif self_v is None:
                     self_v = self[k] = other_v
                 else:
-                    raise RuntimeError("struct update is an incompatible storage type (e.g. updating a value into a list)")
+                    raise StructTypingError("struct update is an incompatible storage type (e.g. updating a value into a list)")
             else:
                 # other is an unknown value type, not a collection
                 if not allow_unknown_types:
-                    raise RuntimeError("Unknown type assigned during recursive .update()")
+                    raise StructTypingError("Unknown type assigned during recursive .update()")
 
                 if isinstance(self_v, (Sequence, Mapping)):
-                    raise RuntimeError("struct update is an incompatible storage type (e.g. updating a value into a dict or list)")
+                    raise StructTypingError("struct update is an incompatible storage type (e.g. updating a value into a dict or list)")
                 else:
                     self[k] = other_v
             return
@@ -227,7 +228,7 @@ class Struct(object):
                     list_update(self_v, other_v)
                 else:
                     if not allow_unknown_types:
-                        raise RuntimeError("Unknown type assigned during recursive .update()")
+                        raise StructTypingError("Unknown type assigned during recursive .update()")
                     # value type to directly assign
                     self[k] = other_v
 
@@ -553,6 +554,9 @@ yaml_loader.add_implicit_resolver(
     |\\.(?:nan|NaN|NAN))$''', re.X),
     list('-+0123456789.'))
 
+
+class StructTypingError(ValueError):
+    pass
 
 # add to the registry of mappings, as it is a useful way to write code to normalize between dicts and structs
 Mapping.register(Struct)

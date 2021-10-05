@@ -121,9 +121,9 @@ def load_budget(name_or_path, freq=None, bname=None):
             logger.info("loading struct {}...".format(path))
             ifo = Struct.from_file(path)
 
-            inherit_ifo = ifo.get('inherit', None)
+            inherit_ifo = ifo.get('+inherit', None)
             if inherit_ifo is not None:
-                del ifo['inherit']
+                del ifo['+inherit']
                 # make the inherited path relative to the loaded path
                 # if it is a yml file
                 if os.path.splitext(inherit_ifo)[1] in Struct.STRUCT_EXT:

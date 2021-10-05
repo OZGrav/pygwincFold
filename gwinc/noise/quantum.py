@@ -138,6 +138,7 @@ def shotrad(f, ifo, sustf, power):
         sqz_params.alpha = sqzOptimalSqueezeAngle(Mifo, sqz_params.eta)
 
     vHD = np.array([[sin(sqz_params.eta), cos(sqz_params.eta)]])
+
     def homodyne(signal):
         """Readout the eta quadrature of the signal signal
         """
@@ -243,7 +244,6 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     L = ifo.Infrastructure.Length                # Length of arm cavities [m]
     l = ifo.Optics.SRM.CavityLength              # SRC Length [m]
     T = ifo.Optics.ITM.Transmittance             # ITM Transmittance [Power]
-    m = ifo.Suspension.Stage[0].Mass             # Mirror mass [kg]
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     bsloss = ifo.Optics.BSLoss                   # BS Loss [Power]
@@ -662,8 +662,6 @@ def getProdTF(lhs, rhs):
     # check matrix size
     if lhs.shape[1] != rhs.shape[0]:
         raise Exception('Matrix size mismatch size(lhs, 2) = %d != %d = size(rhs, 1)' % (lhs.shape[1], rhs.shape[0]))
-    N = lhs.shape[0]
-    M = rhs.shape[1]
     if len(lhs.shape) == 3:
         lhs = np.transpose(lhs, axes=(2, 0, 1))
     if len(rhs.shape) == 3:

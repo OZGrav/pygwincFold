@@ -1,5 +1,5 @@
 
-inherit: 'Aplus'
++inherit: 'Aplus'
 #test that list merging works
 Suspension:
   Stage:

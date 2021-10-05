@@ -1,5 +1,5 @@
 
-inherit: 'Aplus_mod.yaml'
++inherit: 'Aplus_mod.yaml'
 #test that list merging works
 Suspension:
   Stage:
