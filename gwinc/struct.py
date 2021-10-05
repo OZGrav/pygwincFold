@@ -14,6 +14,11 @@ from scipy.io import loadmat
 from scipy.io.matlab.mio5_params import mat_struct
 
 
+# these are the leaf types for struct that are most officially supported
+# str must be included to distinguish it from lists.
+value_types = (str, Number, np.ndarray),
+
+
 class Struct(object):
     """Matlab struct-like object
 
@@ -116,7 +121,6 @@ class Struct(object):
         cleared in the updated self. override the argument
         clear_test=lambda v: v is None to clear null values.
         """
-        value_types = (str, Number, np.ndarray),
         kw = dict(
             overwrite_atoms=overwrite_atoms,
             clear_test=clear_test,
@@ -481,7 +485,7 @@ class Struct(object):
         return c
 
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path, _pass_inherit=False):
         """Load Struct from .yaml or MATLAB .mat file.
 
         Accepted file types are .yaml, .mat, or .m.
@@ -498,6 +502,9 @@ class Struct(object):
 
           Struct.from_file((__file__, 'myifo.yaml'))
 
+        the _pass_inherit is a special key enabling the "+inherit" feature from
+        load_budget. It will change in future versions as that functionality is
+        moved here.
         """
         if type(path) == tuple:
             path = os.path.join(os.path.abspath(os.path.dirname(path[0])), *path[1:])
@@ -510,16 +517,50 @@ class Struct(object):
             func_name = os.path.basename(base)
             matlab.eval("ifo = {};".format(func_name), nargout=0)
             ifo = matlab.extract('ifo')
-            return Struct.from_matstruct(ifo)
+            val = Struct.from_matstruct(ifo)
 
-        with open(path, 'r') as f:
-            if ext in ['.yaml', '.yml']:
-                return cls.from_yaml(f)
-            elif ext == '.mat':
-                s = loadmat(f, squeeze_me=True, struct_as_record=False)
-                return cls.from_matstruct(s)
+        else:
+            with open(path, 'r') as f:
+                if ext in ['.yaml', '.yml']:
+                    val = cls.from_yaml(f)
+                elif ext == '.mat':
+                    s = loadmat(f, squeeze_me=True, struct_as_record=False)
+                    val = cls.from_matstruct(s)
+                else:
+                    raise IOError("Unknown file type: {}".format(ext))
+
+        # now include code it enable or disable "+inherit" at this stage of loading
+        # this will modify in place if +inherit loading is active
+        def recurse_value(v):
+            if isinstance(v, value_types):
+                pass
+            elif isinstance(v, Sequence):
+                recurse_sequence(v)
+            elif isinstance(v, Mapping):
+                recurse_mapping(v)
             else:
-                raise IOError("Unknown file type: {}".format(ext))
+                pass
+
+        def recurse_mapping(dct):
+            for k, v in dct.items():
+                if k == '+inherit':
+                    raise RuntimeError('The +inherit key is not supported (yet) using from_file')
+                recurse_value(v)
+
+        def recurse_sequence(lst):
+            for v in lst:
+                recurse_value(v)
+
+        # the bottom loop is special cased, as currently +inherit is only allowed at root level
+        for k, v in val.items():
+            if k == '+inherit':
+                if _pass_inherit:
+                    pass
+                else:
+                    raise RuntimeError('The +inherit key is not supported (yet) using from_file')
+                continue
+            recurse_value(v)
+        return val
 
 
 def dictlist2recarray(lst):

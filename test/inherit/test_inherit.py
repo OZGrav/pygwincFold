@@ -1,9 +1,13 @@
 """
 """
+import pytest
+
 from gwinc import load_budget
 
 
-def test_load(pprint, tpath_join, fpath_join):
+@pytest.mark.fast
+@pytest.mark.logic
+def test_inherit_load(pprint, tpath_join, fpath_join):
     fpath = fpath_join('Aplus_mod.yaml')
     B_inherit = load_budget(fpath)
     B_orig = load_budget('Aplus')
@@ -32,3 +36,15 @@ def test_load(pprint, tpath_join, fpath_join):
         ])
     )
 
+
+@pytest.mark.fast
+@pytest.mark.logic
+def test_inherit_fail(pprint, tpath_join, fpath_join):
+    """
+    This test shows that the interim logic that Struct.from_file checks for and fails when it gets "+inherit" keys.
+    Those will be allowable at a later time.
+    """
+    fpath2 = fpath_join('inherit_fail.yaml')
+
+    with pytest.raises(RuntimeError):
+        B_inherit2 = load_budget(fpath2)

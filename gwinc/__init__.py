@@ -119,7 +119,7 @@ def load_budget(name_or_path, freq=None, bname=None):
 
         if ext in Struct.STRUCT_EXT:
             logger.info("loading struct {}...".format(path))
-            ifo = Struct.from_file(path)
+            ifo = Struct.from_file(path, _pass_inherit=True)
 
             inherit_ifo = ifo.get('+inherit', None)
             if inherit_ifo is not None:
