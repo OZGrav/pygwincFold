@@ -2,7 +2,6 @@
 """
 
 from collections.abc import Mapping, Sequence, MutableSequence
-#base class for numbers
 from numbers import Number
 
 import os
@@ -17,39 +16,6 @@ from scipy.io.matlab.mio5_params import mat_struct
 
 # this is an assumption made for the recursive update method later, so check here
 assert not issubclass(np.ndarray, Sequence)
-
-
-# HACK: fix loading Number in scientific notation
-#
-# https://stackoverflow.com/questions/30458977/yaml-loads-5e-6-as-string-and-not-a-number
-#
-# An apparent bug in python-yaml prevents it from regognizing
-# scientific notation as a float.  The following is a modified version
-# of the parser that recognize scientific notation appropriately.
-yaml_loader = yaml.SafeLoader
-yaml_loader.add_implicit_resolver(
-    'tag:yaml.org,2002:float',
-    re.compile('''^(?:
-     [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
-    |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
-    |\\.[0-9_]+(?:[eE][-+][0-9]+)?
-    |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
-    |[-+]?\\.(?:inf|Inf|INF)
-    |\\.(?:nan|NaN|NAN))$''', re.X),
-    list('-+0123456789.'))
-
-
-def dictlist2recarray(l):
-    def dtype(v):
-        if isinstance(v, int):
-            return float
-        else:
-            return type(v)
-    # get dtypes from first element dict
-    dtypes = [(k, dtype(v)) for k, v in l[0].items()]
-    values = [tuple(el.values()) for el in l]
-    out = np.array(values, dtype=dtypes)
-    return out.view(np.recarray)
 
 
 class Struct(object):
@@ -97,7 +63,7 @@ class Struct(object):
         Struct.
 
         """
-        #TODO, should this use the more or less permissive allow_unknown_types?
+        # TODO, should this use the more or less permissive allow_unknown_types?
         self.update(dict(*args, **kwargs), allow_unknown_types=True)
 
     def __getitem__(self, key):
@@ -140,7 +106,7 @@ class Struct(object):
     def update(
             self, other,
             overwrite_atoms=False,
-            clear_test=lambda v : False,
+            clear_test=lambda v: False,
             value_types=(str, Number, np.ndarray),
             allow_unknown_types=True,
     ):
@@ -173,7 +139,7 @@ class Struct(object):
                 else:
                     raise RuntimeError("clear_test deletions not allowed in sequences like lists")
             elif other_v is None:
-                #don't update on None
+                # don't update on None
                 pass
             elif isinstance(other_v, value_types):
                 # other is a value type, not a collection
@@ -555,4 +521,38 @@ class Struct(object):
                 raise IOError("Unknown file type: {}".format(ext))
 
 
+def dictlist2recarray(lst):
+    def dtype(v):
+        if isinstance(v, int):
+            return float
+        else:
+            return type(v)
+    # get dtypes from first element dict
+    dtypes = [(k, dtype(v)) for k, v in lst[0].items()]
+    values = [tuple(el.values()) for el in lst]
+    out = np.array(values, dtype=dtypes)
+    return out.view(np.recarray)
+
+
+# HACK: fix loading Number in scientific notation
+#
+# https://stackoverflow.com/questions/30458977/yaml-loads-5e-6-as-string-and-not-a-number
+#
+# An apparent bug in python-yaml prevents it from regognizing
+# scientific notation as a float.  The following is a modified version
+# of the parser that recognize scientific notation appropriately.
+yaml_loader = yaml.SafeLoader
+yaml_loader.add_implicit_resolver(
+    'tag:yaml.org,2002:float',
+    re.compile('''^(?:
+     [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+    |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+    |\\.[0-9_]+(?:[eE][-+][0-9]+)?
+    |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
+    |[-+]?\\.(?:inf|Inf|INF)
+    |\\.(?:nan|NaN|NAN))$''', re.X),
+    list('-+0123456789.'))
+
+
+# add to the registry of mappings, as it is a useful way to write code to normalize between dicts and structs
 Mapping.register(Struct)

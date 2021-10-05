@@ -27,8 +27,10 @@ logger = logging.getLogger('gwinc')
 
 DEFAULT_FREQ = '5:3000:6000'
 
+
 class InvalidFrequencySpec(Exception):
     pass
+
 
 def freq_from_spec(spec=None):
     """logarithmicly spaced frequency array, based on specification string
@@ -122,15 +124,15 @@ def load_budget(name_or_path, freq=None, bname=None):
             inherit_ifo = ifo.get('inherit', None)
             if inherit_ifo is not None:
                 del ifo['inherit']
-                #make the inherited path relative to the loaded path
-                #if it is a yml file
+                # make the inherited path relative to the loaded path
+                # if it is a yml file
                 if os.path.splitext(inherit_ifo)[1] in Struct.STRUCT_EXT:
                     base = os.path.split(path)[0]
                     inherit_ifo = os.path.join(base, inherit_ifo)
 
                 inherit_budget = load_budget(inherit_ifo, freq=freq, bname=bname)
                 pre_ifo = inherit_budget.ifo
-                pre_ifo.update(ifo, overwrite_atoms = False)
+                pre_ifo.update(ifo, overwrite_atoms=False)
                 inherit_budget.update(ifo=pre_ifo)
                 return inherit_budget
             else:
@@ -220,13 +222,15 @@ def gwinc(freq, ifo, source=None, plot=False, PRfixed=True):
         logger.info('Power on BS:            %7.2f W' % pbs)
 
         # coating and substrate thermal load on the ITM
-        PowAbsITM = (pbs/2) * \
-                    np.hstack([(finesse*2/np.pi) * ifo.Optics.ITM.CoatingAbsorption,
-                               (2 * ifo.Materials.MassThickness) * ifo.Optics.ITM.SubstrateAbsorption])
+        PowAbsITM = (
+            (pbs/2)
+            * np.hstack([
+                (finesse*2/np.pi) * ifo.Optics.ITM.CoatingAbsorption,
+                (2 * ifo.Materials.MassThickness) * ifo.Optics.ITM.SubstrateAbsorption])
+        )
 
         logger.info('Thermal load on ITM:    %8.3f W' % sum(PowAbsITM))
-        logger.info('Thermal load on BS:     %8.3f W' %
-                     (ifo.Materials.MassThickness*ifo.Optics.SubstrateAbsorption*pbs))
+        logger.info('Thermal load on BS:     %8.3f W' % (ifo.Materials.MassThickness*ifo.Optics.SubstrateAbsorption*pbs))
         if (ifo.Laser.Power*prfactor != pbs):
             logger.info('Lensing limited input power: %7.2f W' % (pbs/prfactor))
 

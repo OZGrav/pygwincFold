@@ -251,7 +251,7 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     mismatch = mismatch + ifo.TCS.SRCloss        # Mismatch
 
     # BSloss + mismatch has been incorporated into a SRC Loss
-    lambda_SR = 1 - (1 - mismatch) * (1 - bsloss) # SR cavity loss [Power]
+    lambda_SR = 1 - (1 - mismatch) * (1 - bsloss)  # SR cavity loss [Power]
 
     tau = sqrt(ifo.Optics.SRM.Transmittance)     # SRM Transmittance [amplitude]
     rho = sqrt(1 - tau**2)                       # SRM Reflectivity [amplitude]
@@ -355,8 +355,7 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     tau_SEC_ARM = getProdTF(tau_SEC, tau_ARM)
 
     # signal field
-    Msig = tSig * exp(1j * Omega * L / c) * \
-           getProdTF(tau_SEC_ARM, np.array([[np.zeros(nf)], [sqrt(2 * K) / h_SQL]]))
+    Msig = tSig * exp(1j * Omega * L / c) * getProdTF(tau_SEC_ARM, np.array([[np.zeros(nf)], [sqrt(2 * K) / h_SQL]]))
 
     # dark-port input field
     Mifo = rho_SEC
@@ -812,21 +811,20 @@ def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1, key='FC'):
     c = const.c
     omega = 2 * pi * f
     wf = 2 * pi * fdetune
-    Phi_p = 2 * (omega-wf)* Lcav / c
-    Phi_m = 2 * (-omega-wf)* Lcav / c
+    Phi_p = 2 * (omega-wf) * Lcav / c
+    Phi_m = 2 * (-omega-wf) * Lcav / c
 
     ephi_p = exp(1j * Phi_p)
     ephi_m = exp(1j * Phi_m)
 
     # cavity gains
-    g_p = 1 / ( 1 - rr * ephi_p)
-    g_m = 1 / ( 1 - rr * ephi_m)
+    g_p = 1 / (1 - rr * ephi_p)
+    g_m = 1 / (1 - rr * ephi_m)
 
     # Reflectivity for vacuum flactuation entering the cavity from
     # the input mirror (check sign)
     r_p = ri - re * Ti * ephi_p * g_p
     r_m = ri - re * Ti * ephi_m * g_m
-
 
     # Transmissivity for vacuum flactuation entering the cavity from
     # the back mirror (check sign)
