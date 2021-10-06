@@ -14,11 +14,6 @@ from scipy.io import loadmat
 from scipy.io.matlab.mio5_params import mat_struct
 
 
-# these are the leaf types for struct that are most officially supported
-# str must be included to distinguish it from lists.
-value_types = (str, Number, np.ndarray),
-
-
 class Struct(object):
     """Matlab struct-like object
 
@@ -122,7 +117,7 @@ class Struct(object):
         clear_test=lambda v: v is None to clear null values.
 
         overwrite_atoms is an boolean argument which allows overwriting values
-        with different types, like converting a float to a Struct, it defaults
+        with different types, like converting a float to a Struct. It defaults
         to False to disallow this often confusing behavior, but is sometimes
         necessary.
 
@@ -150,9 +145,9 @@ class Struct(object):
             elif other_v is None:
                 # don't update on None
                 pass
-            elif isinstance(other_v, value_types):
+            elif isinstance(other_v, VALUE_TYPES):
                 # other is a value type, not a collection
-                if isinstance(self_v, value_types):
+                if isinstance(self_v, VALUE_TYPES):
                     self[k] = other_v
                 elif isinstance(self_v, (Sequence, Mapping)):
                     raise StructTypingError("struct update is an incompatible storage type (e.g. updating a value into a dict or list)")
@@ -162,7 +157,7 @@ class Struct(object):
                     else:
                         self[k] = other_v
             elif isinstance(other_v, Mapping):
-                if isinstance(self_v, value_types):
+                if isinstance(self_v, VALUE_TYPES):
                     if not overwrite_atoms:
                         raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a float)")
                     else:
@@ -178,13 +173,13 @@ class Struct(object):
                 else:
                     raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a list)")
             elif isinstance(other_v, Sequence):
-                # this check MUST come after value_types, or string is included
+                # this check MUST come after VALUE_TYPES, or string is included
 
                 # make mutable
                 if not isinstance(self_v, MutableSequence):
                     self_v = list(self_v)
 
-                if isinstance(self_v, value_types):
+                if isinstance(self_v, VALUE_TYPES):
                     if not overwrite_atoms:
                         raise StructTypingError("struct update is an incompatible storage type (e.g. updating a dict into a string)")
                     else:
@@ -228,7 +223,7 @@ class Struct(object):
                 # k not in self, so just assign
                 if clear_test(other_v):
                     pass
-                elif isinstance(other_v, value_types):
+                elif isinstance(other_v, VALUE_TYPES):
                     # value type to directly assign
                     self[k] = other_v
                 elif isinstance(other_v, Mapping):
@@ -260,7 +255,7 @@ class Struct(object):
     def to_dict(self, array=False):
         """Return nested dictionary representation of Struct.
 
-        If `array` is True any lists encountered will be turned into
+        If `array` is True, any lists encountered will be turned into
         numpy arrays, and lists of Structs will be turned into record
         arrays.  This is needed to convert to structure arrays in
         matlab.
@@ -462,7 +457,7 @@ class Struct(object):
         """Create Struct from YAML string.
 
         """
-        d = yaml.load(y, Loader=yaml_loader) or {}
+        d = yaml.load(y, Loader=YAML_LOADER) or {}
         return cls(d)
 
     @classmethod
@@ -541,7 +536,7 @@ class Struct(object):
         # now include code it enable or disable "+inherit" at this stage of loading
         # this will modify in place if +inherit loading is active
         def recurse_value(v):
-            if isinstance(v, value_types):
+            if isinstance(v, VALUE_TYPES):
                 pass
             elif isinstance(v, Sequence):
                 recurse_sequence(v)
@@ -572,6 +567,11 @@ class Struct(object):
         return val
 
 
+# these are the leaf types for struct that are most officially supported
+# str must be included to distinguish it from Sequences like lists.
+VALUE_TYPES = (str, Number, np.ndarray),
+
+
 def dictlist2recarray(lst):
     def dtype(v):
         if isinstance(v, int):
@@ -589,11 +589,11 @@ def dictlist2recarray(lst):
 #
 # https://stackoverflow.com/questions/30458977/yaml-loads-5e-6-as-string-and-not-a-number
 #
-# An apparent bug in python-yaml prevents it from regognizing
+# An apparent bug in python-yaml prevents it from recognizing
 # scientific notation as a float.  The following is a modified version
 # of the parser that recognize scientific notation appropriately.
-yaml_loader = yaml.SafeLoader
-yaml_loader.add_implicit_resolver(
+YAML_LOADER = yaml.SafeLoader
+YAML_LOADER.add_implicit_resolver(
     'tag:yaml.org,2002:float',
     re.compile('''^(?:
      [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
@@ -606,7 +606,12 @@ yaml_loader.add_implicit_resolver(
 
 
 class StructTypingError(ValueError):
+    """
+    Exception class for specific errors related to typing during
+    a recursive update to Struct.
+    """
     pass
+
 
 # add to the registry of mappings, as it is a useful way to write code to normalize between dicts and structs
 Mapping.register(Struct)

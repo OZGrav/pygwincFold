@@ -1,6 +1,6 @@
 
 +inherit: 'Aplus'
-#test that list merging works
+# test that list merging works
 Suspension:
   Stage:
     # Stage1
