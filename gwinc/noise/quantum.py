@@ -5,6 +5,7 @@ from __future__ import division
 import numpy as np
 from numpy import pi, sqrt, arctan, sin, cos, exp, log10, conj
 from copy import deepcopy
+from collections.abc import Sequence
 
 from .. import logger
 from .. import const
@@ -137,6 +138,7 @@ def shotrad(f, ifo, sustf, power):
         sqz_params.alpha = sqzOptimalSqueezeAngle(Mifo, sqz_params.eta)
 
     vHD = np.array([[sin(sqz_params.eta), cos(sqz_params.eta)]])
+
     def homodyne(signal):
         """Readout the eta quadrature of the signal signal
         """
@@ -242,7 +244,6 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     L = ifo.Infrastructure.Length                # Length of arm cavities [m]
     l = ifo.Optics.SRM.CavityLength              # SRC Length [m]
     T = ifo.Optics.ITM.Transmittance             # ITM Transmittance [Power]
-    m = ifo.Suspension.Stage[0].Mass             # Mirror mass [kg]
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     bsloss = ifo.Optics.BSLoss                   # BS Loss [Power]
@@ -250,7 +251,7 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     mismatch = mismatch + ifo.TCS.SRCloss        # Mismatch
 
     # BSloss + mismatch has been incorporated into a SRC Loss
-    lambda_SR = 1 - (1 - mismatch) * (1 - bsloss) # SR cavity loss [Power]
+    lambda_SR = 1 - (1 - mismatch) * (1 - bsloss)  # SR cavity loss [Power]
 
     tau = sqrt(ifo.Optics.SRM.Transmittance)     # SRM Transmittance [amplitude]
     rho = sqrt(1 - tau**2)                       # SRM Reflectivity [amplitude]
@@ -354,8 +355,7 @@ def shotradSignalRecycled(f, ifo, sustf, power):
     tau_SEC_ARM = getProdTF(tau_SEC, tau_ARM)
 
     # signal field
-    Msig = tSig * exp(1j * Omega * L / c) * \
-           getProdTF(tau_SEC_ARM, np.array([[np.zeros(nf)], [sqrt(2 * K) / h_SQL]]))
+    Msig = tSig * exp(1j * Omega * L / c) * getProdTF(tau_SEC_ARM, np.array([[np.zeros(nf)], [sqrt(2 * K) / h_SQL]]))
 
     # dark-port input field
     Mifo = rho_SEC
@@ -579,9 +579,13 @@ def propagate_noise_fc_ifo(f, ifo, Mifo, Mnoise, sqz_params, alpha):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Inject squeezed field into the IFO via some filter cavities
     if sqz_params.sqzType == 'Freq Dependent' and 'FilterCavity' in ifo.Squeezer:
-        logger.debug('  Applying %d input filter cavities' % np.atleast_1d(ifo.Squeezer.FilterCavity).size)
+        if not isinstance(ifo.Squeezer.FilterCavity, Sequence):
+            fc_list = [ifo.Squeezer.FilterCavity]
+        else:
+            fc_list = ifo.Squeezer.FilterCavity
+        logger.debug('  Applying %d input filter cavities' % len(fc_list))
         Mr, Msqz = sqzFilterCavityChain(
-            f, np.atleast_1d(ifo.Squeezer.FilterCavity), Msqz)
+            f, fc_list, Msqz)
 
     # apply the IFO dependent squeezing matrix to get the total noise
     # due to quantum fluctuations coming in from the AS port
@@ -658,8 +662,6 @@ def getProdTF(lhs, rhs):
     # check matrix size
     if lhs.shape[1] != rhs.shape[0]:
         raise Exception('Matrix size mismatch size(lhs, 2) = %d != %d = size(rhs, 1)' % (lhs.shape[1], rhs.shape[0]))
-    N = lhs.shape[0]
-    M = rhs.shape[1]
     if len(lhs.shape) == 3:
         lhs = np.transpose(lhs, axes=(2, 0, 1))
     if len(rhs.shape) == 3:
@@ -739,14 +741,14 @@ def sqzFilterCavityChain(f, params, Mn, key='FC'):
     Mc = make2x2TF(np.ones(f.shape), 0, 0, 1)
 
     # loop through the filter cavites
-    for k in range(params.size):
+    for k, fc in enumerate(params):
         # extract parameters for this filter cavity
-        Lf = params[k].L
-        fdetune = params[k].fdetune
-        Ti = params[k].Ti
-        Te = params[k].Te
-        Lrt = params[k].Lrt
-        theta = params[k].Rot
+        Lf = fc.L
+        fdetune = fc.fdetune
+        Ti = fc.Ti
+        Te = fc.Te
+        Lrt = fc.Lrt
+        theta = fc.Rot
 
         # compute new Mn
         fc_key = key + str(k)
@@ -807,21 +809,20 @@ def sqzFilterCavity(f, Lcav, Ti, Te, Lrt, fdetune, MinR, MinT=1, key='FC'):
     c = const.c
     omega = 2 * pi * f
     wf = 2 * pi * fdetune
-    Phi_p = 2 * (omega-wf)* Lcav / c
-    Phi_m = 2 * (-omega-wf)* Lcav / c
+    Phi_p = 2 * (omega-wf) * Lcav / c
+    Phi_m = 2 * (-omega-wf) * Lcav / c
 
     ephi_p = exp(1j * Phi_p)
     ephi_m = exp(1j * Phi_m)
 
     # cavity gains
-    g_p = 1 / ( 1 - rr * ephi_p)
-    g_m = 1 / ( 1 - rr * ephi_m)
+    g_p = 1 / (1 - rr * ephi_p)
+    g_m = 1 / (1 - rr * ephi_m)
 
     # Reflectivity for vacuum flactuation entering the cavity from
     # the input mirror (check sign)
     r_p = ri - re * Ti * ephi_p * g_p
     r_m = ri - re * Ti * ephi_m * g_m
-
 
     # Transmissivity for vacuum flactuation entering the cavity from
     # the back mirror (check sign)

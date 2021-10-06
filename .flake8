@@ -1,0 +1,10 @@
+
+[flake8]
+ignore = E226,E741,E266,W503
+max-line-length = 140
+
+# E226, missing whitespace around arithmetic operator: quantum.py currently needs large changes to avoid this
+# E741, "l" is a bad variable name: Gwinc uses "l" in a few reasonable places
+# E266, Too many leading '#' for block comment: There are some reasonable instances of comments that trigger this
+# W503, binary operator at start of line: This allows using parentheses to break equations
+

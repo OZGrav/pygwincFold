@@ -1,0 +1,5 @@
+
+# this isn't allowed, yet
+materials:
+  +inherit: 'Aplus'
+

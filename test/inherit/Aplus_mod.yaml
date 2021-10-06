@@ -1,0 +1,18 @@
+
++inherit: 'Aplus'
+# test that list merging works
+Suspension:
+  Stage:
+    # Stage1
+    - 
+    # Stage2
+    - 
+    # Stage3
+    - 
+    # Stage4
+    - Mass: 30
+
+
+Squeezer:
+  AmplitudedB: 14                 # SQZ amplitude [dB]
+  InjectionLoss: 0.02             # power loss to sqz

@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 #gwinc must be importable to build the docs properly anyway, using apidoc, so
 #import it now for the __version__ parameter
-import gwinc
+import gwinc  # noqa
 
 
 # -- General configuration ------------------------------------------------

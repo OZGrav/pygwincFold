@@ -1,0 +1,15 @@
+
++inherit: 'Aplus_mod.yaml'
+# test that list merging works
+Suspension:
+  Stage:
+    # Stage1
+    - 
+    # Stage2
+    - 
+    # Stage3
+    - Mass: 30
+
+
+Squeezer:
+  AmplitudedB: 12                 # SQZ amplitude [dB]

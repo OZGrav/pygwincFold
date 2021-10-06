@@ -92,7 +92,7 @@ def load_budget(name_or_path, freq=None, bname=None):
 
     If `bname` is specified the Budget class with that name will be
     loaded from the budget module.  Otherwise, the Budget class with
-    the same name as the budget module will be load.
+    the same name as the budget module will be loaded.
 
     If the budget is a package directory which includes an 'ifo.yaml'
     file the ifo Struct will be loaded from that file and assigned to
@@ -119,10 +119,24 @@ def load_budget(name_or_path, freq=None, bname=None):
 
         if ext in Struct.STRUCT_EXT:
             logger.info("loading struct {}...".format(path))
-            ifo = Struct.from_file(path)
-            bname = 'aLIGO'
-            modname = 'gwinc.ifo.aLIGO'
+            ifo = Struct.from_file(path, _pass_inherit=True)
 
+            inherit_ifo = ifo.get('+inherit', None)
+            if inherit_ifo is not None:
+                del ifo['+inherit']
+                # make the inherited path relative to the loaded path
+                # if it is a yml file
+                if os.path.splitext(inherit_ifo)[1] in Struct.STRUCT_EXT:
+                    base = os.path.split(path)[0]
+                    inherit_ifo = os.path.join(base, inherit_ifo)
+
+                inherit_budget = load_budget(inherit_ifo, freq=freq, bname=bname)
+                pre_ifo = inherit_budget.ifo
+                pre_ifo.update(ifo, overwrite_atoms=False)
+                inherit_budget.update(ifo=pre_ifo)
+                return inherit_budget
+            else:
+                modname = 'gwinc.ifo.aLIGO'
         else:
             bname = bname or base
             modname = path
@@ -208,13 +222,15 @@ def gwinc(freq, ifo, source=None, plot=False, PRfixed=True):
         logger.info('Power on BS:            %7.2f W' % pbs)
 
         # coating and substrate thermal load on the ITM
-        PowAbsITM = (pbs/2) * \
-                    np.hstack([(finesse*2/np.pi) * ifo.Optics.ITM.CoatingAbsorption,
-                               (2 * ifo.Materials.MassThickness) * ifo.Optics.ITM.SubstrateAbsorption])
+        PowAbsITM = (
+            (pbs/2)
+            * np.hstack([
+                (finesse*2/np.pi) * ifo.Optics.ITM.CoatingAbsorption,
+                (2 * ifo.Materials.MassThickness) * ifo.Optics.ITM.SubstrateAbsorption])
+        )
 
         logger.info('Thermal load on ITM:    %8.3f W' % sum(PowAbsITM))
-        logger.info('Thermal load on BS:     %8.3f W' %
-                     (ifo.Materials.MassThickness*ifo.Optics.SubstrateAbsorption*pbs))
+        logger.info('Thermal load on BS:     %8.3f W' % (ifo.Materials.MassThickness*ifo.Optics.SubstrateAbsorption*pbs))
         if (ifo.Laser.Power*prfactor != pbs):
             logger.info('Lensing limited input power: %7.2f W' % (pbs/prfactor))
 
