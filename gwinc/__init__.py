@@ -125,10 +125,11 @@ def load_budget(name_or_path, freq=None, bname=None):
             if inherit_ifo is not None:
                 del ifo['+inherit']
                 # make the inherited path relative to the loaded path
-                # if it is a yml file
-                if os.path.splitext(inherit_ifo)[1] in Struct.STRUCT_EXT:
-                    base = os.path.split(path)[0]
-                    inherit_ifo = os.path.join(base, inherit_ifo)
+                # if it is a yml file or a directory
+                head = os.path.split(path)[0]
+                rel_path = os.path.join(head, inherit_ifo)
+                if os.path.splitext(inherit_ifo)[1] in Struct.STRUCT_EXT or os.path.exists(rel_path):
+                    inherit_ifo = rel_path
 
                 inherit_budget = load_budget(inherit_ifo, freq=freq, bname=bname)
                 pre_ifo = inherit_budget.ifo
@@ -137,6 +138,8 @@ def load_budget(name_or_path, freq=None, bname=None):
                 return inherit_budget
             else:
                 modname = 'gwinc.ifo.aLIGO'
+                bname = bname or 'aLIGO'
+
         else:
             bname = bname or base
             modname = path
