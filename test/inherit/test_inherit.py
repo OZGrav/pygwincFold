@@ -39,6 +39,50 @@ def test_inherit_load(pprint, tpath_join, fpath_join):
 
 @pytest.mark.fast
 @pytest.mark.logic
+def test_inherit_custom_budget(fpath_join):
+    """
+    Test that inheritance works when the final budget is a custom budget in
+    an arbitrary directory instead of one of the canonical budgets
+    """
+    B_inherit = load_budget(fpath_join('subdir/CustomBudget_mod.yaml'))
+    B_orig = load_budget(fpath_join('subdir/CustomBudget'))
+
+    noises = [noise.__name__ for noise in B_inherit.noises]
+
+    assert B_inherit.name == 'A custom budget'
+    assert sorted(noises) == ['QuantumVacuum', 'Seismic']
+    assert(
+        sorted(B_inherit.ifo.diff(B_orig.ifo))
+        == sorted([
+            ('Squeezer.AmplitudedB', 14, 12),
+            ('Squeezer.FilterCavity.Lrt', 40e-6, 60e-6),
+        ])
+    )
+
+
+@pytest.mark.fast
+@pytest.mark.logic
+def test_load_uninherited_yaml(fpath_join):
+    """
+    Test that a yaml file not specifying an inherited budget is loaded into
+    the aLIGO budget
+    """
+    B_new = load_budget(fpath_join('new_ifo.yaml'))
+    B_aLIGO = load_budget('aLIGO')
+
+    assert B_new.name == 'Advanced LIGO'
+    assert(
+        sorted(B_new.ifo.diff(B_aLIGO.ifo))
+        == sorted([
+            ('Optics.Loss', 3.75e-05, 4e-05),
+            ('Squeezer.AmplitudedB', 12, None),
+            ('Squeezer.FilterCavity.L', 300, None),
+        ])
+    )
+
+
+@pytest.mark.fast
+@pytest.mark.logic
 def test_inherit_fail(pprint, tpath_join, fpath_join):
     """
     This test shows that the interim logic that Struct.from_file checks for and fails when it gets "+inherit" keys.
