@@ -159,8 +159,8 @@ def precomp_quantum(f, ifo, sustf):
     # if there were two, there would also be FC1 and FC1_unsqzd_back, etc.
     # keys = list(noise_dict.keys())
     fc_keys = [key for key in noise_dict.keys() if 'FC' in key]
+    pc.FC = np.zeros_like(pc.ASvac)
     if fc_keys:
-        pc.FC = np.zeros_like(pc.ASvac)
         for key in fc_keys:
             pc.FC += noise_dict[key]
 
