@@ -140,9 +140,14 @@ def load_budget(name_or_path, freq=None, bname=None):
                 modname = 'gwinc.ifo.aLIGO'
                 bname = bname or 'aLIGO'
 
-        else:
+        elif ext == '':
             bname = bname or base
             modname = path
+
+        else:
+            raise RuntimeError(
+                "Unknown file type: {} (supported types: {}).".format(
+                    ext, Struct.STRUCT_EXT))
 
     else:
         if name_or_path not in IFOS:

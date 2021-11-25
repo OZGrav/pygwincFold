@@ -92,3 +92,24 @@ def test_inherit_fail(pprint, tpath_join, fpath_join):
 
     with pytest.raises(RuntimeError):
         B_inherit2 = load_budget(fpath2)
+
+
+@pytest.mark.fast
+@pytest.mark.logic
+def test_load_fail_unknown_filetype(fpath_join):
+    """
+    Test that load_budget fails when given a file type not supported by Struct
+    """
+    with pytest.raises(RuntimeError):
+        budget = load_budget(fpath_join('new_ifo.txt'))
+
+
+@pytest.mark.fast
+@pytest.mark.logic
+def test_load_fail_unknown_ifo():
+    """
+    Test that load_budget fails when given an unknown ifo that doesn't exist
+    """
+    with pytest.raises(RuntimeError):
+        budget = load_budget('not_a_real_ifo')
+
