@@ -271,7 +271,7 @@ class Noise(BudgetItem):
                 ifo_hash = ifo.hash(ifo._orig_keys)
                 if ifo_hash != getattr(self, '_ifo_hash', 0):
                     logger.debug("ifo hash change")
-                    kwargs['ifo'] = self.ifo
+                    kwargs['ifo'] = ifo
             self._ifo_hash = ifo_hash
 
         if kwargs:
