@@ -132,7 +132,11 @@ def load_budget(name_or_path, freq=None, bname=None):
 
                 inherit_budget = load_budget(inherit_ifo, freq=freq, bname=bname)
                 pre_ifo = inherit_budget.ifo
-                pre_ifo.update(ifo, overwrite_atoms=False)
+                pre_ifo.update(
+                    ifo,
+                    overwrite_atoms=False,
+                    clear_test=lambda v: isinstance(v, str) and v == '<unset>'
+                )
                 inherit_budget.update(ifo=pre_ifo)
                 return inherit_budget
             else:

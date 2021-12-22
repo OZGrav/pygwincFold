@@ -36,6 +36,14 @@ def test_inherit_load(pprint, tpath_join, fpath_join):
         ])
     )
 
+    fpath3 = fpath_join('Aplus_mod3.yaml')
+    B_inherit3 = load_budget(fpath3)
+    pprint(B_inherit3.ifo.diff(B_orig.ifo))
+    assert(
+        B_inherit3.ifo.diff(B_orig.ifo)
+        == [('Optics.Quadrature.dc', None, 1.5707963)]
+    )
+
 
 @pytest.mark.fast
 @pytest.mark.logic
