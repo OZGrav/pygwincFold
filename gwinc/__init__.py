@@ -44,8 +44,8 @@ def freq_from_spec(spec=None):
         return spec
     elif spec is None:
         spec = DEFAULT_FREQ
-    fspec = spec.split(':')
     try:
+        fspec = spec.split(':')
         if len(fspec) == 2:
             fspec = fspec[0], DEFAULT_FREQ.split(':')[1], fspec[1]
         return np.logspace(
@@ -53,7 +53,7 @@ def freq_from_spec(spec=None):
             np.log10(float(fspec[2])),
             int(fspec[1]),
         )
-    except (ValueError, IndexError):
+    except (ValueError, IndexError, AttributeError):
         raise InvalidFrequencySpec(f'Improper frequency specification: {spec}')
 
 
@@ -154,7 +154,7 @@ def load_budget(name_or_path, freq=None, bname=None):
     mod, modpath = load_module(modname)
     Budget = getattr(mod, bname)
     if freq is None:
-        freq = getattr(Budget, 'freq', None)
+        freq = getattr(Budget, '_freq', None)
     freq = freq_from_spec(freq)
     ifopath = os.path.join(modpath, 'ifo.yaml')
     if not ifo and os.path.exists(ifopath):
