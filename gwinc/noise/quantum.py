@@ -33,14 +33,16 @@ def getSqzParams(ifo):
     params = Struct()
 
     if 'Squeezer' not in ifo:
-        sqzType = None
+        sqzType = 'None'
+    elif ifo.Squeezer.AmplitudedB == 0:
+        sqzType = 'None'
     else:
         sqzType = ifo.Squeezer.get('Type', 'Freq Independent')
 
     params.sqzType = sqzType
 
     # extract squeezer parameters
-    if sqzType is None:
+    if sqzType == 'None':
         params.SQZ_DB = 0
         params.ANTISQZ_DB = 0
         params.alpha = 0
