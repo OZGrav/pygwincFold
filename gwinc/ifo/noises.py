@@ -310,36 +310,31 @@ class StandardQuantumLimit(nb.Noise):
 # seismic
 #########################
 
-class SeismicHorizontal(nb.Noise):
-    """Horizontal seismic noise
+def Seismic_constructor(direction):
+    """Seismic noise for a single direction
 
     """
-    style = dict(
-        label='Horizontal',
-        color='xkcd:muted blue',
-    )
+    if direction == 'horiz':
+        label = 'Horizontal'
+        color = 'xkcd:muted blue'
+    elif direction == 'vert':
+        label = 'Vertical'
+        color = 'xkcd:brick red'
 
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
-        n = noise.seismic.seismic_suspension_filtered(sustf, nt, 'horiz')
-        return n * 4
+    class SeismicDirection(nb.Noise):
+        name = label
+        style = dict(
+            label=label,
+            color=color,
+        )
 
+        @nb.precomp(sustf=suspension.precomp_suspension)
+        def calc(self, sustf):
+            nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
+            n = noise.seismic.seismic_suspension_filtered(sustf, nt, direction)
+            return n * 4
 
-class SeismicVertical(nb.Noise):
-    """Vertical seismic noise
-
-    """
-    style = dict(
-        label='Vertical',
-        color='xkcd:brick red',
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
-        n = noise.seismic.seismic_suspension_filtered(sustf, nt, 'vert')
-        return n * 4
+    return SeismicDirection
 
 
 class Seismic(nb.Budget):
@@ -352,8 +347,8 @@ class Seismic(nb.Budget):
     )
 
     noises = [
-        SeismicHorizontal,
-        SeismicVertical,
+        Seismic_constructor('vert'),
+        Seismic_constructor('horiz'),
     ]
 
 
@@ -422,144 +417,48 @@ class NewtonianInfrasound(nb.Noise):
 # suspension thermal
 #########################
 
-class SuspensionThermalHorizTop(nb.Noise):
-    """Horizontal suspension thermal around the top mass
+def SuspensionThermal_constructor(stage_num, direction):
+    """Suspension thermal for a single stage in one direction
 
     """
-    style = dict(
-        label='Horiz. Top',
-        color='xkcd:orangeish',
-        alpha=0.7,
-    )
+    if stage_num == 0:
+        stage_name = 'Top'
+        color = 'xkcd:orangeish'
+    elif stage_num == 1:
+        stage_name = 'UIM'
+        color = 'xkcd:mustard'
+    elif stage_num == 2:
+        stage_name = 'PUM'
+        color = 'xkcd:turquoise'
+    elif stage_num == 3:
+        stage_name = 'Test mass'
+        color = 'xkcd:bright purple'
 
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 0, 'horiz')
-        return abs(n) * 4
+    if direction == 'horiz':
+        name0 = 'Horiz' + stage_name
+        label = 'Horiz. ' + stage_name
+        linestyle = '-'
+    elif direction == 'vert':
+        name0 = 'Vert' + stage_name
+        label = 'Vert. ' + stage_name
+        linestyle = '--'
 
+    class SuspensionThermalStage(nb.Noise):
+        name = name0
+        style = dict(
+            label=label,
+            color=color,
+            linestyle=linestyle,
+            alpha=0.7,
+        )
 
-class SuspensionThermalHorizAPM(nb.Noise):
-    """Horizontal suspension thermal around the upper intermediate mass
+        @nb.precomp(sustf=suspension.precomp_suspension)
+        def calc(self, sustf):
+            n = noise.suspensionthermal.susptherm_stage(
+                self.freq, self.ifo.Suspension, sustf, stage_num, direction)
+            return abs(n) * 4
 
-    """
-    style = dict(
-        label='Horiz. APM',
-        color='xkcd:mustard',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 1, 'horiz')
-        return abs(n) * 4
-
-
-class SuspensionThermalHorizPUM(nb.Noise):
-    """Horizontal suspension thermal around the penultimate mass
-
-    """
-    style = dict(
-        label='Horiz. PUM',
-        color='xkcd:turquoise',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 2, 'horiz')
-        return abs(n) * 4
-
-
-class SuspensionThermalHorizTM(nb.Noise):
-    """Horizontal suspension thermal around the test
-
-    """
-    style = dict(
-        label='Horiz. Test mass',
-        color='xkcd:bright purple',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 3, 'horiz')
-        return abs(n) * 4
-
-
-class SuspensionThermalVertTop(nb.Noise):
-    """Vertical suspension thermal around the top mass
-
-    """
-    style = dict(
-        label='Vert. Top',
-        color='xkcd:orangeish',
-        linestyle='--',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 0, 'vert')
-        return abs(n) * 4
-
-
-class SuspensionThermalVertAPM(nb.Noise):
-    """Vertical suspension thermal around the upper intermediate mass
-
-    """
-    style = dict(
-        label='Vert. APM',
-        color='xkcd:mustard',
-        linestyle='--',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 1, 'vert')
-        return abs(n) * 4
-
-
-class SuspensionThermalVertPUM(nb.Noise):
-    """Vertical suspension thermal around the penultimate mass
-
-    """
-    style = dict(
-        label='Vert. PUM',
-        color='xkcd:turquoise',
-        linestyle='--',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 2, 'vert')
-        return abs(n) * 4
-
-
-class SuspensionThermalVertTM(nb.Noise):
-    """Vertical suspension thermal around the test
-
-    """
-    style = dict(
-        label='Vert. Test mass',
-        color='xkcd:bright purple',
-        linestyle='--',
-        alpha=0.7,
-    )
-
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        n = noise.suspensionthermal.susptherm_stage(
-            self.freq, self.ifo.Suspension, sustf, 3, 'vert')
-        return abs(n) * 4
+    return SuspensionThermalStage
 
 
 class SuspensionThermal(nb.Budget):
@@ -575,13 +474,13 @@ class SuspensionThermal(nb.Budget):
     )
 
     noises = [
-        SuspensionThermalHorizTop,
-        SuspensionThermalHorizAPM,
-        SuspensionThermalHorizPUM,
-        SuspensionThermalHorizTM,
-        SuspensionThermalVertTop,
-        SuspensionThermalVertAPM,
-        SuspensionThermalVertPUM,
+        SuspensionThermal_constructor(0, 'horiz'),
+        SuspensionThermal_constructor(1, 'horiz'),
+        SuspensionThermal_constructor(2, 'horiz'),
+        SuspensionThermal_constructor(3, 'horiz'),
+        SuspensionThermal_constructor(0, 'vert'),
+        SuspensionThermal_constructor(1, 'vert'),
+        SuspensionThermal_constructor(2, 'vert'),
     ]
 
 
@@ -712,175 +611,94 @@ class SubstrateThermoElastic(nb.Noise):
 # to provide some simplication in the Budget definition, so
 # should be re-evaluated at some point.
 
-
-def calc_total_residual_gas_damping(f, ifo, species, sustf):
-    """Total residual gas damping from all four test masses
-
-    :f: frequency array in Hz
-    :ifo: gwinc IFO structure
-    :species: molecular species structure
-    :sustf: suspension transfer function structure
-
-    :returns: displacement noise
-    """
-    squeezed_film = ifo.Infrastructure.ResidualGas.get('SqueezedFilm', Struct())
-
-    if squeezed_film is None:
-        raise ValueError('Must specify either excess damping or a gap')
-
-    # Calculate squeezed film for ETM and ITM seperately if either is given
-    # explicitly. If only one is given, it is not computed for the other one.
-    if ('ETM' in squeezed_film) or ('ITM' in squeezed_film):
-        squeezed_film_ETM = squeezed_film.get('ETM', Struct())
-        squeezed_film_ITM = squeezed_film.get('ITM', Struct())
-        n_ETM = noise.residualgas.residual_gas_damping_test_mass(
-            f, ifo, species, sustf, squeezed_film_ETM)
-        n_ITM = noise.residualgas.residual_gas_damping_test_mass(
-            f, ifo, species, sustf, squeezed_film_ITM)
-        n = 2 * (n_ETM + n_ITM)
-
-    # Otherwise the same calculation is used for both.
-    else:
-        n = 4 * noise.residualgas.residual_gas_damping_test_mass(
-            f, ifo, species, sustf, squeezed_film)
-
-    return n
-
-
-class ExcessGasScatteringH2(nb.Noise):
-    """Excess gas scattering for H2
-
-    """
-    style = dict(
-        label='H$_2$ scattering',
-        color='xkcd:red orange'
-    )
-
-    def calc(self):
-        cavity = arm_cavity(self.ifo)
-        species = self.ifo.Infrastructure.ResidualGas.H2
-        n = noise.residualgas.residual_gas_scattering_arm(
-            self.freq, self.ifo, cavity, species)
-        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
-        return n * 2 / sinc_sqr
-
-
-class ExcessGasScatteringN2(nb.Noise):
-    """Excess gas scattering for N2
-
-    """
-    style = dict(
-        label='N$_2$ scattering',
-        color='xkcd:emerald'
-    )
-
-    def calc(self):
-        cavity = arm_cavity(self.ifo)
-        species = self.ifo.Infrastructure.ResidualGas.N2
-        n = noise.residualgas.residual_gas_scattering_arm(
-            self.freq, self.ifo, cavity, species)
-        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
-        return n * 2 / sinc_sqr
-
-
-class ExcessGasScatteringH2O(nb.Noise):
-    """Excess gas scattering for H2O
-
-    """
-    style = dict(
-        label='H$_2$O scattering',
-        color='xkcd:water blue'
-    )
-
-    def calc(self):
-        cavity = arm_cavity(self.ifo)
-        species = self.ifo.Infrastructure.ResidualGas.H2O
-        n = noise.residualgas.residual_gas_scattering_arm(
-            self.freq, self.ifo, cavity, species)
-        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
-        return n * 2 / sinc_sqr
-
-
-class ExcessGasScatteringO2(nb.Noise):
-    """Excess gas scattering for O2
-
-    """
-    style = dict(
-        label='O$_2$ scattering',
-        color='xkcd:grey'
-    )
-
-    def calc(self):
-        cavity = arm_cavity(self.ifo)
-        species = self.ifo.Infrastructure.ResidualGas.O2
-        n = noise.residualgas.residual_gas_scattering_arm(
-            self.freq, self.ifo, cavity, species)
-        dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
-        return n * 2 / sinc_sqr
-
-
-class ExcessGasDampingH2(nb.Noise):
-    """Residual gas damping for H2
-
-    """
-    style = dict(
-        label='H$_2$ damping',
+RESGAS_STYLES = dict(
+    H2 = dict(
+        label='H$_2$',
         color='xkcd:red orange',
-        linestyle='--',
-    )
+    ),
 
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        species = self.ifo.Infrastructure.ResidualGas.H2
-        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
-
-
-class ExcessGasDampingN2(nb.Noise):
-    """Excess gas damping for N2
-
-    """
-    style = dict(
-        label='N$_2$ damping',
+    N2 = dict(
+        label='N$_2$',
         color='xkcd:emerald',
-        linestyle='--',
-    )
+    ),
 
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        species = self.ifo.Infrastructure.ResidualGas.N2
-        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
-
-
-class ExcessGasDampingH2O(nb.Noise):
-    """Excess gas damping for H2O
-
-    """
-    style = dict(
-        label='H$_2$O damping',
+    H2O = dict(
+        label='H$_2$O',
         color='xkcd:water blue',
-        linestyle='--',
-    )
+    ),
 
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        species = self.ifo.Infrastructure.ResidualGas.H2O
-        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
+    O2 = dict(
+        label='O$_2$',
+        color='xkcd:grey',
+    ),
+)
 
 
-class ExcessGasDampingO2(nb.Noise):
-    """Excess gas damping for O2
+def ResidualGasScattering_constructor(species_name):
+    """Residual gas scattering for a single species
 
     """
-    style = dict(
-        label='O$_2$ damping',
-        color='xkcd:grey',
-        linestyle='--',
-    )
 
-    @nb.precomp(sustf=suspension.precomp_suspension)
-    def calc(self, sustf):
-        species = self.ifo.Infrastructure.ResidualGas.O2
-        return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
+    class GasScatteringSpecies(nb.Noise):
+        name = 'Scattering' + species_name
+        style = dict(
+            label=RESGAS_STYLES[species_name]['label'] + ' scattering',
+            color=RESGAS_STYLES[species_name]['color'],
+            linestyle='-',
+        )
+
+        def calc(self):
+            cavity = arm_cavity(self.ifo)
+            species = self.ifo.Infrastructure.ResidualGas[species_name]
+            n = noise.residualgas.residual_gas_scattering_arm(
+                self.freq, self.ifo, cavity, species)
+            dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+            return n * 2 / sinc_sqr
+
+    return GasScatteringSpecies
+
+
+def ResidualGasDamping_constructor(species_name):
+    """Reisidual gas damping for a single species
+
+    """
+
+    class GasDampingSpecies(nb.Noise):
+        name = 'Damping' + species_name
+        style = dict(
+            label=RESGAS_STYLES[species_name]['label'] + ' damping',
+            color=RESGAS_STYLES[species_name]['color'],
+            linestyle='--',
+        )
+
+        @nb.precomp(sustf=suspension.precomp_suspension)
+        def calc(self, sustf):
+            rg = self.ifo.Infrastructure.ResidualGas
+            species = rg[species_name]
+            squeezed_film = rg.get('SqueezedFilm', Struct())
+
+            if squeezed_film is None:
+                raise ValueError('Must specify either excess damping or a gap')
+
+            # Calculate squeezed film for ETM and ITM seperately if either is given
+            # explicitly. If only one is given, it is not computed for the other one.
+            if ('ETM' in squeezed_film) or ('ITM' in squeezed_film):
+                squeezed_film_ETM = squeezed_film.get('ETM', Struct())
+                squeezed_film_ITM = squeezed_film.get('ITM', Struct())
+                n_ETM = noise.residualgas.residual_gas_damping_test_mass(
+                    self.freq, self.ifo, species, sustf, squeezed_film_ETM)
+                n_ITM = noise.residualgas.residual_gas_damping_test_mass(
+                    self.freq, self.ifo, species, sustf, squeezed_film_ITM)
+                n = 2 * (n_ETM + n_ITM)
+
+            # Otherwise the same calculation is used for both.
+            else:
+                n = 4 * noise.residualgas.residual_gas_damping_test_mass(
+                    self.freq, self.ifo, species, sustf, squeezed_film)
+
+            return n
+
+    return GasDampingSpecies
 
 
 class ExcessGas(nb.Budget):
@@ -894,12 +712,12 @@ class ExcessGas(nb.Budget):
     )
 
     noises = [
-        ExcessGasScatteringH2,
-        ExcessGasScatteringN2,
-        ExcessGasScatteringH2O,
-        ExcessGasScatteringO2,
-        ExcessGasDampingH2,
-        ExcessGasDampingN2,
-        ExcessGasDampingH2O,
-        ExcessGasDampingO2,
+        ResidualGasScattering_constructor('H2'),
+        ResidualGasScattering_constructor('N2'),
+        ResidualGasScattering_constructor('H2O'),
+        ResidualGasScattering_constructor('O2'),
+        ResidualGasDamping_constructor('H2'),
+        ResidualGasDamping_constructor('N2'),
+        ResidualGasDamping_constructor('H2O'),
+        ResidualGasDamping_constructor('O2'),
     ]

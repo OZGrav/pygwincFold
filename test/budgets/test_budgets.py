@@ -35,6 +35,18 @@ def test_check_noise(ifo, fpath_join, compare_noise):
     compare_noise(traces, ref_traces)
 
 
+@pytest.mark.parametrize("ifo", gwinc.IFOS)
+def test_sub_budgets(ifo, tpath_join):
+    B = load_budget(ifo)
+    traces = B.run()
+    fig = traces.plot()
+    fig.savefig(tpath_join('Total.pdf'))
+    for trace in traces:
+        if trace.budget:
+            fig = trace.plot()
+            fig.savefig(tpath_join(trace.name + '.pdf'))
+
+
 @pytest.mark.logic
 @pytest.mark.fast
 def test_update_ifo_struct():
@@ -46,7 +58,7 @@ def test_update_ifo_struct():
     budget.ifo.Suspension.VHCoupling.theta *= 2
     tr2 = budget.run()
     assert np.all(
-        tr2.Seismic.SeismicVertical.asd == 2*tr1.Seismic.SeismicVertical.asd)
+        tr2.Seismic.Vertical.asd == 2*tr1.Seismic.Vertical.asd)
 
 
 @pytest.mark.logic
@@ -64,7 +76,7 @@ def test_change_ifo_struct():
     tr3 = budget.run(ifo=ifo1)
     assert np.all(tr1.asd == tr3.asd)
     assert np.all(
-        tr2.Seismic.SeismicVertical.asd == 2*tr1.Seismic.SeismicVertical.asd)
+        tr2.Seismic.Vertical.asd == 2*tr1.Seismic.Vertical.asd)
 
 
 @pytest.mark.logic
