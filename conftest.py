@@ -279,6 +279,59 @@ def relfile_test(_file_, request, pre = None, post = None, fname = None):
         return relfile(_file_, testname, fname = fname)
 
 
+@pytest.fixture
+def compare_noise(pprint):
+    """
+    Fixture to compare two sets of traces
+
+    A list of noises passed, failed, and skipped are printed. Comparisons are
+    skipped if the psd's are sufficiently small (controlled by psd_tol) indicating
+    that the noise is essentially zero or if a trace is missing.
+
+    An assertion error is raised if any noises fail.
+    """
+    import numpy as np
+
+    def compare(traces, ref_traces, psd_tol=1e-52):
+        passed = []
+        failed = []
+        skipped = []
+        for ref_trace in ref_traces:
+            if np.all(ref_trace.psd < psd_tol):
+                skipped.append(ref_trace.name)
+                continue
+
+            try:
+                trace = traces[ref_trace.name]
+            except KeyError:
+                skipped.append(ref_trace.name)
+                continue
+
+            if np.allclose(trace.psd, ref_trace.psd, atol=0):
+                passed.append(trace.name)
+            else:
+                failed.append(trace.name)
+
+        pprint('Noises failed:')
+        pprint(40 * '-')
+        for noise in failed:
+            pprint(noise)
+        pprint(40 * '+')
+        pprint('Noises passed:')
+        pprint(40 * '-')
+        for noise in passed:
+            pprint(noise)
+        pprint(40 * '+')
+        pprint('Noises skipped:')
+        pprint(40 * '-')
+        for noise in skipped:
+            pprint(noise)
+
+        assert len(failed) == 0
+
+    return compare
+
+
 def pytest_collection_modifyitems(config, items):
     """
     Modifies tests to be selectively skipped with command line options
