@@ -1,8 +1,9 @@
 #for docs and setup.py outputs
 build/
-tresults/
+tresults*/
 # test cache
 gwinc/test/cache
+test/*/*.h5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

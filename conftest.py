@@ -40,6 +40,14 @@ def pytest_addoption(parser):
         help="Do not preclear tpaths",
     )
 
+    parser.addoption(
+        "--generate",
+        action="store_true",
+        default=False,
+        dest="generate",
+        help="Generate test data",
+    )
+
 
 @pytest.fixture
 def plot(request):
@@ -270,3 +278,24 @@ def relfile_test(_file_, request, pre = None, post = None, fname = None):
     else:
         return relfile(_file_, testname, fname = fname)
 
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Modifies tests to be selectively skipped with command line options
+
+    https://docs.pytest.org/en/latest/example/simple.html#control-skipping-of-tests-according-to-command-line-option
+    """
+    # run tests marked as generate if and only if --generate is given
+    # skip all others in this case
+    if config.getoption('--generate'):
+        skip = pytest.mark.skip(
+            reason='only running tests that generate data')
+        for item in items:
+            if 'generate' not in item.keywords:
+                item.add_marker(skip)
+    else:
+        skip = pytest.mark.skip(
+            reason='generates test data: needs --generate to run')
+        for item in items:
+            if 'generate' in item.keywords:
+                item.add_marker(skip)
