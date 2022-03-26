@@ -10,6 +10,65 @@ import scipy.integrate
 from .. import const
 from ..const import BESSEL_ZEROS as zeta
 from ..const import J0M as j0m
+from .. import nb
+from ..ifo.noises import arm_cavity, ifo_power
+
+
+class ITMThermoRefractive(nb.Noise):
+    """ITM Thermo-Refractive
+
+    """
+    style = dict(
+        label='ITM Thermo-Refractive',
+        color='#448ee4',
+        linestyle='--',
+    )
+
+    def calc(self):
+        power = ifo_power(self.ifo)
+        gPhase = power.finesse * 2/np.pi
+        cavity = arm_cavity(self.ifo)
+        n = substrate_thermorefractive(
+            self.freq, self.ifo.Materials, cavity.wBeam_ITM)
+        return n * 2 / gPhase**2
+
+
+class SubstrateBrownian(nb.Noise):
+    """Substrate Brownian
+
+    """
+    style = dict(
+        label='Substrate Brownian',
+        color='#fb7d07',
+        linestyle='--',
+    )
+
+    def calc(self):
+        cavity = arm_cavity(self.ifo)
+        nITM = substrate_brownian(
+            self.freq, self.ifo.Materials, cavity.wBeam_ITM)
+        nETM = substrate_brownian(
+            self.freq, self.ifo.Materials, cavity.wBeam_ETM)
+        return (nITM + nETM) * 2
+
+
+class SubstrateThermoElastic(nb.Noise):
+    """Substrate Thermo-Elastic
+
+    """
+    style = dict(
+        label='Substrate Thermo-Elastic',
+        color='#f5bf03',
+        linestyle='--',
+    )
+
+    def calc(self):
+        cavity = arm_cavity(self.ifo)
+        nITM = substrate_thermoelastic(
+            self.freq, self.ifo.Materials, cavity.wBeam_ITM)
+        nETM = substrate_thermoelastic(
+            self.freq, self.ifo.Materials, cavity.wBeam_ETM)
+        return (nITM + nETM) * 2
 
 
 def substrate_thermorefractive(f, materials, wBeam, exact=False):

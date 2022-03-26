@@ -1,8 +1,10 @@
-from gwinc.ifo.noises import *
 from gwinc.ifo import PLOT_STYLE
+from gwinc import noise
+from gwinc import nb
+from gwinc.ifo.noises import Strain
 
 
-class QuantumVacuum(nb.Budget):
+class Quantum(nb.Budget):
     """Quantum Vacuum
 
     """
@@ -12,13 +14,13 @@ class QuantumVacuum(nb.Budget):
     )
 
     noises = [
-        QuantumVacuumAS,
-        QuantumVacuumArm,
-        QuantumVacuumSEC,
-        QuantumVacuumFilterCavity,
-        QuantumVacuumInjection,
-        QuantumVacuumReadout,
-        QuantumVacuumQuadraturePhase,
+        noise.quantum.AS,
+        noise.quantum.Arm,
+        noise.quantum.SEC,
+        noise.quantum.FilterCavity,
+        noise.quantum.Injection,
+        noise.quantum.Readout,
+        noise.quantum.QuadraturePhase,
     ]
 
 
@@ -35,9 +37,9 @@ class Newtonian(nb.Budget):
     )
 
     noises = [
-        NewtonianRayleigh,
-        NewtonianBody,
-        NewtonianInfrasound,
+        noise.newtonian.Rayleigh,
+        noise.newtonian.Body,
+        noise.newtonian.Infrasound,
     ]
 
 
@@ -54,8 +56,8 @@ class Coating(nb.Budget):
     )
 
     noises = [
-        CoatingBrownian,
-        CoatingThermoOptic,
+        noise.coatingthermal.CoatingBrownian,
+        noise.coatingthermal.CoatingThermoOptic,
     ]
 
 
@@ -72,8 +74,8 @@ class Substrate(nb.Budget):
     )
 
     noises = [
-        SubstrateBrownian,
-        SubstrateThermoElastic,
+        noise.substratethermal.SubstrateBrownian,
+        noise.substratethermal.SubstrateThermoElastic,
     ]
 
 
@@ -82,13 +84,13 @@ class CE1(nb.Budget):
     name = 'Cosmic Explorer 1'
 
     noises = [
-        QuantumVacuum,
-        Seismic,
+        Quantum,
+        noise.seismic.Seismic,
         Newtonian,
-        SuspensionThermal,
+        noise.suspensionthermal.SuspensionThermal,
         Coating,
         Substrate,
-        ExcessGas,
+        noise.residualgas.ResidualGas,
     ]
 
     calibrations = [

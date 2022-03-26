@@ -5,6 +5,51 @@ from __future__ import division
 import numpy as np
 from scipy.interpolate import PchipInterpolator as interp1d
 
+from .. import nb
+from ..suspension import precomp_suspension
+
+
+def Seismic_constructor(direction):
+    """Seismic noise for a single direction
+
+    """
+    if direction == 'horiz':
+        label = 'Horizontal'
+        color = 'xkcd:muted blue'
+    elif direction == 'vert':
+        label = 'Vertical'
+        color = 'xkcd:brick red'
+
+    class SeismicDirection(nb.Noise):
+        name = label
+        style = dict(
+            label=label,
+            color=color,
+        )
+
+        @nb.precomp(sustf=precomp_suspension)
+        def calc(self, sustf):
+            nt, nr = platform_motion(self.freq, self.ifo)
+            n = seismic_suspension_filtered(sustf, nt, direction)
+            return n * 4
+
+    return SeismicDirection
+
+
+class Seismic(nb.Budget):
+    """Seismic
+
+    """
+    style = dict(
+        label='Seismic',
+        color='#855700',
+    )
+
+    noises = [
+        Seismic_constructor('vert'),
+        Seismic_constructor('horiz'),
+    ]
+
 
 def seismic_suspension_filtered(sustf, in_trans, direction):
     """Seismic displacement noise for single suspended test mass.

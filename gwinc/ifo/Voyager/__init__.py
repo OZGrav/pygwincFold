@@ -1,8 +1,10 @@
-from gwinc.ifo.noises import *
 from gwinc.ifo import PLOT_STYLE
+from gwinc import noise
+from gwinc import nb
+from gwinc.ifo.noises import Strain
 
 
-class QuantumVacuum(nb.Budget):
+class Quantum(nb.Budget):
     """Quantum Vacuum
 
     """
@@ -12,12 +14,12 @@ class QuantumVacuum(nb.Budget):
     )
 
     noises = [
-        QuantumVacuumAS,
-        QuantumVacuumArm,
-        QuantumVacuumSEC,
-        QuantumVacuumFilterCavity,
-        QuantumVacuumInjection,
-        QuantumVacuumReadout,
+        noise.quantum.AS,
+        noise.quantum.Arm,
+        noise.quantum.SEC,
+        noise.quantum.FilterCavity,
+        noise.quantum.Injection,
+        noise.quantum.Readout,
     ]
 
 
@@ -26,16 +28,16 @@ class Voyager(nb.Budget):
     name = 'Voyager'
 
     noises = [
-        QuantumVacuum,
-        Seismic,
-        Newtonian,
-        SuspensionThermal,
-        CoatingBrownian,
-        CoatingThermoOptic,
-        ITMThermoRefractive,
-        SubstrateBrownian,
-        SubstrateThermoElastic,
-        ExcessGas,
+        Quantum,
+        noise.seismic.Seismic,
+        noise.newtonian.Newtonian,
+        noise.suspensionthermal.SuspensionThermal,
+        noise.coatingthermal.CoatingBrownian,
+        noise.coatingthermal.CoatingThermoOptic,
+        noise.substratethermal.ITMThermoRefractive,
+        noise.substratethermal.SubstrateBrownian,
+        noise.substratethermal.SubstrateThermoElastic,
+        noise.residualgas.ResidualGas,
     ]
 
     calibrations = [

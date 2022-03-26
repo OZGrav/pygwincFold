@@ -11,10 +11,10 @@ from .. import logger
 from .. import const
 from ..struct import Struct
 from .. import nb
-from .. import suspension
+from ..suspension import precomp_suspension
 
 
-@nb.precomp(sustf=suspension.precomp_suspension)
+@nb.precomp(sustf=precomp_suspension)
 def precomp_quantum(f, ifo, sustf):
     from ..ifo import noises
     pc = Struct()
@@ -44,6 +44,137 @@ def precomp_quantum(f, ifo, sustf):
         pc.OFC = noise_dict['OFC']
 
     return pc
+
+
+
+class QuantumVacuum(nb.Noise):
+    """Quantum Vacuum
+
+    """
+    style = dict(
+        label='Quantum Vacuum',
+        color='#ad03de',
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        total = np.zeros_like(quantum.ASvac)
+        for nn in quantum.values():
+            total += nn
+        return total
+
+
+class AS(nb.Noise):
+    """Quantum vacuum from the AS port
+
+    """
+    style = dict(
+        label='AS Port Vacuum',
+        color='xkcd:emerald green'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.ASvac
+
+
+class Arm(nb.Noise):
+    """Quantum vacuum due to arm cavity loss
+
+    """
+    style = dict(
+        label='Arm Loss',
+        color='xkcd:orange brown'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.Arm
+
+
+class SEC(nb.Noise):
+    """Quantum vacuum due to SEC loss
+
+    """
+    style = dict(
+        label='SEC Loss',
+        color='xkcd:cerulean'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.SEC
+
+
+class FilterCavity(nb.Noise):
+    """Quantum vacuum due to filter cavity loss
+
+    """
+    style = dict(
+        label='Filter Cavity Loss',
+        color='xkcd:goldenrod'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.FC
+
+
+class Injection(nb.Noise):
+    """Quantum vacuum due to injection loss
+
+    """
+    style = dict(
+        label='Injection Loss',
+        color='xkcd:fuchsia'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.Injection
+
+
+class Readout(nb.Noise):
+    """Quantum vacuum due to readout loss
+
+    """
+    style = dict(
+        label='Readout Loss',
+        color='xkcd:mahogany'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.PD
+
+
+class QuadraturePhase(nb.Noise):
+    """Quantum vacuum noise due to quadrature phase noise
+    """
+    style = dict(
+        label='Quadrature Phase',
+        color='xkcd:slate'
+    )
+
+    @nb.precomp(quantum=precomp_quantum)
+    def calc(self, quantum):
+        return quantum.Phase
+
+
+class StandardQuantumLimit(nb.Noise):
+    """Standard Quantum Limit
+
+    """
+    style = dict(
+        label="Standard Quantum Limit",
+        color="#000000",
+        linestyle=":",
+    )
+
+    def calc(self):
+        from .coatingthermal import mirror_struct
+        ETM = mirror_struct(self.ifo, 'ETM')
+        return 8 * const.hbar / (ETM.MirrorMass * (2 * np.pi * self.freq) ** 2)
 
 
 def getSqzParams(ifo):
