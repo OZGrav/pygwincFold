@@ -2,7 +2,9 @@
 
 '''
 from __future__ import division
+import numpy as np
 from numpy import sqrt, log, pi
+from scipy.integrate import trapz
 
 from .. import const
 from .. import Struct
@@ -182,6 +184,37 @@ def residual_gas_scattering_arm(f, ifo, cavity, species):
     zint[zint < 0] = 0
 
     return zint
+
+
+def residual_gas_scattering_beamtube_pressure(
+        f, ifo, cavity, species, pressure_Pa, position_m):
+    """Residual gas scattering from one arm using measured beamtube pressures
+
+    :f: frequency array in Hz
+    :ifo: gwinc IFO structure
+    :cavity: arm cavity structure
+    :species: molecular species structure
+    :pressure_Pa: beamtube pressure profile in Pa
+    :position_m: vector of positions where pressure is given in m
+
+    :returns: arm strain noise power spectrum at :f:
+    """
+    ww_m = cavity.w0 * np.sqrt(1 + ((position_m - cavity.zBeam_ITM)/cavity.zr)**2)
+    kT = ifo.Infrastructure.Temp * const.kB
+    M = species.mass
+    alpha = species.polarizability
+
+    v0 = np.sqrt(2*kT / M)
+
+    alpha = species.polarizability
+
+    integrand = np.exp(np.einsum('i,j->ij', -2*np.pi*f, ww_m/v0))
+    integrand *= np.einsum('i,j->ij', np.ones_like(f), pressure_Pa / ww_m)
+    zint = trapz(integrand, position_m, axis=1)
+
+    noise = 4 * (2*np.pi*alpha)**2 / (v0 * kT) * zint
+
+    return noise
 
 
 def residual_gas_damping_test_mass(f, ifo, species, sustf, squeezed_film):
