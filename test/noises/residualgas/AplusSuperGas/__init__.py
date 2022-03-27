@@ -27,7 +27,7 @@ class Quantum(nb.Budget):
 
 
 def ResidualGasScattering_constructor(species_name, tube):
-    """Residual gas scattering for a single species
+    """Residual gas scattering for a single species and a single arm
 
     """
 
@@ -59,17 +59,18 @@ def ResidualGasScattering_constructor(species_name, tube):
             fname = path.join(path.split(bpath)[0], 'beamtube_pressure.txt')
             df = pd.read_csv(fname, sep='\t')
             pressure_torr = df[species_name + '_' + tube]
-            self.position_m = df['position_m']
+            self.tubepos_m = df['position_m']
             self.pressure_Pa = pressure_torr * 133.3
 
         def calc(self):
             cavity = noise.residualgas.arm_cavity(self.ifo)
             species = self.ifo.Infrastructure.ResidualGas[species_name]
-            n = noise.residualgas.residual_gas_scattering_beamtube_pressure(
+            n = noise.residualgas.residual_gas_scattering_arm(
                 self.freq, self.ifo, cavity, species, self.pressure_Pa,
-                self.position_m)
+                self.tubepos_m)
             dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
-            return n * 2 / sinc_sqr
+            # note that this is for a single arm, so no factor of 2
+            return n / sinc_sqr
 
     return GasScatteringSpeciesTube
 
