@@ -296,21 +296,27 @@ def compare_noise(pprint):
         passed = []
         failed = []
         skipped = []
-        for ref_trace in ref_traces:
-            if np.all(ref_trace.psd < psd_tol):
-                skipped.append(ref_trace.name)
-                continue
+        if ref_traces.budget:
+            for ref_trace in ref_traces:
+                if np.all(ref_trace.psd < psd_tol):
+                    skipped.append(ref_trace.name)
+                    continue
 
-            try:
-                trace = traces[ref_trace.name]
-            except KeyError:
-                skipped.append(ref_trace.name)
-                continue
+                try:
+                    trace = traces[ref_trace.name]
+                except KeyError:
+                    skipped.append(ref_trace.name)
+                    continue
 
-            if np.allclose(trace.psd, ref_trace.psd, atol=0):
-                passed.append(trace.name)
+                if np.allclose(trace.psd, ref_trace.psd, atol=0):
+                    passed.append(trace.name)
+                else:
+                    failed.append(trace.name)
+        else:
+            if np.allclose(ref_traces.psd, traces.psd, atol=0):
+                passed.append(traces.name)
             else:
-                failed.append(trace.name)
+                failed.append(traces.name)
 
         pprint('Noises failed:')
         pprint(40 * '-')
