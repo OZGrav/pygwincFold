@@ -81,7 +81,7 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
     compare_noise(traces1.QuantumVacuum, traces2)
     compare_noise(traces1.QuantumVacuum.QuantumVacuumAS, traces2.QuantumVacuumAS)
     pprint(
-        "Testing that run() and calc_noise() on sub-budgets don't apply strain calibration")
+        "Testing that run() and calc_trace() on sub-budgets don't apply strain calibration")
     compare_noise(traces3, traces6)
 
     def update_total_psd(traces):
@@ -97,8 +97,8 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
 
     fig, ax = plt.subplots()
     ax.loglog(F_Hz, traces1.QuantumVacuum.asd, label='run')
-    ax.loglog(F_Hz, traces2.asd, ls='--', label='calc_trace')
-    ax.loglog(F_Hz, traces3.asd, ls='-.', label='calc_noise / $L_\mathrm{arm}$')
+    ax.loglog(F_Hz, traces2.asd, ls='--', label='calc_noise')
+    ax.loglog(F_Hz, traces3.asd, ls='-.', label='calc_trace / $L_\mathrm{arm}$')
 
     # convert displacement noise into strain
     for trace in traces3:
@@ -106,7 +106,7 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
     update_total_psd(traces3)
     ax.loglog(
         F_Hz, traces3.asd, ls=':',
-        label='calc_noise / $(\mathrm{d}h/\mathrm{d}L_\mathrm{arm})$')
+        label='calc_trace / $(\mathrm{d}h/\mathrm{d}L_\mathrm{arm})$')
 
     ax.set_xlim(F_Hz[0], F_Hz[-1])
     ax.grid(True, which='major', alpha=0.5)

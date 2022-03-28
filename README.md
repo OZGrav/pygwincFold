@@ -450,9 +450,9 @@ data = budget.calc_noise('QuantumVacuum')
 You can also calculate a noise at it's source, without applying any
 calibrations, by using the Budget `__getitem__` interface to extract
 the specific Noise BudgetItem for the noise you're interested in, and
-running it's `calc()` method directly:
+running it's `calc_trace()` method directly:
 ```python
-data = budget['QuantumVacuum'].calc()
+data = budget['QuantumVacuum'].calc_trace()
 ```
 
 
