@@ -370,9 +370,9 @@ Squeezer:
 
   # Parameters for frequency dependent squeezing
   FilterCavity:
-    fdetune: -25      # detuning [Hz] zz['x'][0][1]
+    fdetune: -27.3    # detuning [Hz] zz['x'][0][1]
     L: 300            # cavity length [m]
-    Ti: 6.15e-4       # input mirror transmission [Power] zz['x'][0][2]
+    Ti: 6.88e-4       # input mirror transmission [Power] zz['x'][0][2]
     Te: 0e-6          # end mirror transmission
     Lrt: 10e-6        # round-trip loss in the cavity
     Rot: 0            # phase rotation after cavity
