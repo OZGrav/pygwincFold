@@ -3,17 +3,36 @@
 import numpy as np
 import gwinc
 from gwinc import load_budget
+import gwinc.io as io
 from copy import deepcopy
 import pytest
 
 
-def test_load(pprint, tpath_join, fpath_join):
-    pprint(gwinc.IFOS)
-    for ifo in gwinc.IFOS:
-        B = load_budget(ifo)
-        trace = B.run()
-        fig = trace.plot()
-        fig.savefig(tpath_join('budget_{}.pdf'.format(ifo)))
+@pytest.mark.parametrize("ifo", gwinc.IFOS)
+def test_load(ifo, pprint, tpath_join, fpath_join):
+    B = load_budget(ifo)
+    trace = B.run()
+    fig = trace.plot()
+    fig.savefig(tpath_join('budget_{}.pdf'.format(ifo)))
+
+
+@pytest.mark.generate
+@pytest.mark.parametrize("ifo", gwinc.IFOS)
+def test_save_budgets(ifo, fpath_join):
+    B = load_budget(ifo)
+    traces = B.run()
+    io.save_hdf5(traces, fpath_join(ifo + '.h5'))
+
+
+@pytest.mark.parametrize("ifo", gwinc.IFOS)
+def test_check_noise(ifo, fpath_join, compare_noise):
+    try:
+        ref_traces = io.load_hdf5(fpath_join(ifo + '.h5'))
+    except OSError:
+        return
+    budget = load_budget(ifo, freq=ref_traces.freq)
+    traces = budget.run()
+    compare_noise(traces, ref_traces)
 
 
 @pytest.mark.logic
