@@ -1,0 +1,6 @@
++inherit: 'CustomBudget'
+
+Squeezer:
+  AmplitudedB: 14
+  FilterCavity:
+    Lrt: 40e-6
