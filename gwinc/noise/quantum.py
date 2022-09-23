@@ -12,13 +12,6 @@ from .. import const
 from ..struct import Struct
 
 
-def sqzOptimalSqueezeAngle(Mifo, eta):
-    vHD = np.array([[sin(eta), cos(eta)]])
-    H = getProdTF(vHD, Mifo)[0]
-    alpha = arctan(abs(H[1]), abs(H[0]))
-    return alpha
-
-
 def getSqzParams(ifo):
     """Determine squeezer type, if any, and extract common parameters
 
