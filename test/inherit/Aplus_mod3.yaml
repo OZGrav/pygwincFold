@@ -1,0 +1,5 @@
++inherit: 'Aplus'
+
+# test that unset removes struct entries
+Optics:
+    Quadrature: <unset>
