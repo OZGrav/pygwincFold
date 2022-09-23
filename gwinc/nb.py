@@ -139,9 +139,8 @@ class BudgetItem:
         variables to the initialized object.
 
         """
-        if freq is not None:
-            assert isinstance(freq, np.ndarray)
-            self.freq = freq
+        assert isinstance(freq, np.ndarray) or freq is None
+        self._freq = freq
         self.ifo = None
         for key, val in kwargs.items():
             setattr(self, key, val)
@@ -152,6 +151,20 @@ class BudgetItem:
     def name(self):
         """"Name of this BudgetItem class."""
         return self.__class__.__name__
+
+    @property
+    def freq(self):
+        """Frequency array [Hz]"""
+        return self._freq
+
+    @freq.setter
+    def freq(self, val):
+        assert isinstance(val, np.ndarray)
+        # clear the precomp cache
+        self._precomp = dict()
+        # use update instead of setting _freq directly so that Budget.update
+        # recurses through all cal_objs and noise_objs
+        self.update(_freq=val)
 
     def __str__(self):
         # FIXME: provide info on internal state (load/update/calc/etc.)
@@ -353,7 +366,7 @@ class Budget(Noise):
         if freq is not None:
             self.kwargs['freq'] = freq
         else:
-            self.kwargs['freq'] = getattr(self, 'freq', None)
+            self.kwargs['freq'] = getattr(self, '_freq', None)
         # FIXME: special casing the ifo kwarg here, in case it's
         # defined as a class attribute rather than passed at
         # initialization.  we do this because we're not defining a
@@ -498,7 +511,7 @@ class Budget(Noise):
             logger.debug("load {}".format(item))
             item.load()
 
-    def update(self, _precomp=None, **kwargs):
+    def update(self, **kwargs):
         """Recursively update all noise and cal objects with supplied kwargs.
 
         See BudgetItem.update() for more info.
