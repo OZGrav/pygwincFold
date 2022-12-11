@@ -1,6 +1,7 @@
 #for docs and setup.py outputs
 build/
 tresults*/
+test_results*/
 # test cache
 gwinc/test/cache
 test/*/*.h5
