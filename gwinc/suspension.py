@@ -3,7 +3,25 @@ from numpy import pi, sqrt, sin, cos, tan, real, imag
 import numpy as np
 
 from . import logger
-from .const import g
+from . import const
+from .struct import Struct
+
+
+def precomp_suspension(f, ifo):
+    pc = Struct()
+    pc.VHCoupling = Struct()
+    if 'VHCoupling' in ifo.Suspension:
+        pc.VHCoupling.theta = ifo.Suspension.VHCoupling.theta
+    else:
+        pc.VHCoupling.theta = ifo.Infrastructure.Length / const.R_earth
+    hForce, vForce, hTable, vTable, tst_suscept = suspQuad(
+        f, ifo.Suspension)
+    pc.hForce = hForce
+    pc.vForce = vForce
+    pc.hTable = hTable
+    pc.vTable = vTable
+    pc.tst_suscept = tst_suscept
+    return pc
 
 
 # supported fiber geometries
@@ -414,7 +432,7 @@ def suspQuad(f, sus):
     # Compute cumulative weight of suspension
     masses = np.array([stage.Mass for stage in stages])
     # weight support by lower stages
-    Mgs = g * np.flipud(np.cumsum(np.flipud(masses)))
+    Mgs = const.g * np.flipud(np.cumsum(np.flipud(masses)))
 
     ##############################
     # Complex spring constants

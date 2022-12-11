@@ -123,55 +123,6 @@ def ifo_power(ifo, PRfixed=True):
     power.Tpr = Tpr
     return power
 
-##################################################
-
-def precomp_suspension(f, ifo):
-    pc = Struct()
-    pc.VHCoupling = Struct()
-    if 'VHCoupling' in ifo.Suspension:
-        pc.VHCoupling.theta = ifo.Suspension.VHCoupling.theta
-    else:
-        pc.VHCoupling.theta = ifo.Infrastructure.Length / const.R_earth
-    hForce, vForce, hTable, vTable, tst_suscept = suspension.suspQuad(
-        f, ifo.Suspension)
-    pc.hForce = hForce
-    pc.vForce = vForce
-    pc.hTable = hTable
-    pc.vTable = vTable
-    pc.tst_suscept = tst_suscept
-    return pc
-
-
-@nb.precomp(sustf=precomp_suspension)
-def precomp_quantum(f, ifo, sustf):
-    pc = Struct()
-    power = ifo_power(ifo)
-    noise_dict = noise.quantum.shotrad(f, ifo, sustf, power)
-    pc.ASvac = noise_dict['ASvac']
-    pc.SEC = noise_dict['SEC']
-    pc.Arm = noise_dict['arm']
-    pc.Injection = noise_dict['injection']
-    pc.PD = noise_dict['pd']
-
-    # FC0 are the noises from the filter cavity losses and FC0_unsqzd_back
-    # are noises from the unsqueezed vacuum injected at the back mirror
-    # Right now there are at most one filter cavity in all the models;
-    # if there were two, there would also be FC1 and FC1_unsqzd_back, etc.
-    # keys = list(noise_dict.keys())
-    fc_keys = [key for key in noise_dict.keys() if 'FC' in key]
-    pc.FC = np.zeros_like(pc.ASvac)
-    if fc_keys:
-        for key in fc_keys:
-            pc.FC += noise_dict[key]
-
-    if 'phase' in noise_dict.keys():
-        pc.Phase = noise_dict['phase']
-
-    if 'ofc' in noise_dict.keys():
-        pc.OFC = noise_dict['OFC']
-
-    return pc
-
 
 ############################################################
 # calibration
@@ -235,7 +186,7 @@ class QuantumVacuum(nb.Noise):
         color='#ad03de',
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         total = np.zeros_like(quantum.ASvac)
         for nn in quantum.values():
@@ -252,7 +203,7 @@ class QuantumVacuumAS(nb.Noise):
         color='xkcd:emerald green'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.ASvac
 
@@ -266,7 +217,7 @@ class QuantumVacuumArm(nb.Noise):
         color='xkcd:orange brown'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.Arm
 
@@ -280,7 +231,7 @@ class QuantumVacuumSEC(nb.Noise):
         color='xkcd:cerulean'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.SEC
 
@@ -294,7 +245,7 @@ class QuantumVacuumFilterCavity(nb.Noise):
         color='xkcd:goldenrod'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.FC
 
@@ -308,7 +259,7 @@ class QuantumVacuumInjection(nb.Noise):
         color='xkcd:fuchsia'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.Injection
 
@@ -322,7 +273,7 @@ class QuantumVacuumReadout(nb.Noise):
         color='xkcd:mahogany'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.PD
 
@@ -335,7 +286,7 @@ class QuantumVacuumQuadraturePhase(nb.Noise):
         color='xkcd:slate'
     )
 
-    @nb.precomp(quantum=precomp_quantum)
+    @nb.precomp(quantum=noise.quantum.precomp_quantum)
     def calc(self, quantum):
         return quantum.Phase
 
@@ -368,7 +319,7 @@ class SeismicHorizontal(nb.Noise):
         color='xkcd:muted blue',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
         n = noise.seismic.seismic_suspension_filtered(sustf, nt, 'horiz')
@@ -384,7 +335,7 @@ class SeismicVertical(nb.Noise):
         color='xkcd:brick red',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         nt, nr = noise.seismic.platform_motion(self.freq, self.ifo)
         n = noise.seismic.seismic_suspension_filtered(sustf, nt, 'vert')
@@ -481,7 +432,7 @@ class SuspensionThermalHorizTop(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 0, 'horiz')
@@ -498,7 +449,7 @@ class SuspensionThermalHorizAPM(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 1, 'horiz')
@@ -515,7 +466,7 @@ class SuspensionThermalHorizPUM(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 2, 'horiz')
@@ -532,7 +483,7 @@ class SuspensionThermalHorizTM(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 3, 'horiz')
@@ -550,7 +501,7 @@ class SuspensionThermalVertTop(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 0, 'vert')
@@ -568,7 +519,7 @@ class SuspensionThermalVertAPM(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 1, 'vert')
@@ -586,7 +537,7 @@ class SuspensionThermalVertPUM(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 2, 'vert')
@@ -604,7 +555,7 @@ class SuspensionThermalVertTM(nb.Noise):
         alpha=0.7,
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         n = noise.suspensionthermal.susptherm_stage(
             self.freq, self.ifo.Suspension, sustf, 3, 'vert')
@@ -878,7 +829,7 @@ class ExcessGasDampingH2(nb.Noise):
         linestyle='--',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         species = self.ifo.Infrastructure.ResidualGas.H2
         return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
@@ -894,7 +845,7 @@ class ExcessGasDampingN2(nb.Noise):
         linestyle='--',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         species = self.ifo.Infrastructure.ResidualGas.N2
         return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
@@ -910,7 +861,7 @@ class ExcessGasDampingH2O(nb.Noise):
         linestyle='--',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         species = self.ifo.Infrastructure.ResidualGas.H2O
         return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)
@@ -926,7 +877,7 @@ class ExcessGasDampingO2(nb.Noise):
         linestyle='--',
     )
 
-    @nb.precomp(sustf=precomp_suspension)
+    @nb.precomp(sustf=suspension.precomp_suspension)
     def calc(self, sustf):
         species = self.ifo.Infrastructure.ResidualGas.O2
         return calc_total_residual_gas_damping(self.freq, self.ifo, species, sustf)

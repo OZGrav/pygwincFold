@@ -10,6 +10,40 @@ from collections.abc import Sequence
 from .. import logger
 from .. import const
 from ..struct import Struct
+from .. import nb
+from .. import suspension
+
+
+@nb.precomp(sustf=suspension.precomp_suspension)
+def precomp_quantum(f, ifo, sustf):
+    from ..ifo import noises
+    pc = Struct()
+    power = noises.ifo_power(ifo)
+    noise_dict = shotrad(f, ifo, sustf, power)
+    pc.ASvac = noise_dict['ASvac']
+    pc.SEC = noise_dict['SEC']
+    pc.Arm = noise_dict['arm']
+    pc.Injection = noise_dict['injection']
+    pc.PD = noise_dict['pd']
+
+    # FC0 are the noises from the filter cavity losses and FC0_unsqzd_back
+    # are noises from the unsqueezed vacuum injected at the back mirror
+    # Right now there are at most one filter cavity in all the models;
+    # if there were two, there would also be FC1 and FC1_unsqzd_back, etc.
+    # keys = list(noise_dict.keys())
+    fc_keys = [key for key in noise_dict.keys() if 'FC' in key]
+    pc.FC = np.zeros_like(pc.ASvac)
+    if fc_keys:
+        for key in fc_keys:
+            pc.FC += noise_dict[key]
+
+    if 'phase' in noise_dict.keys():
+        pc.Phase = noise_dict['phase']
+
+    if 'ofc' in noise_dict.keys():
+        pc.OFC = noise_dict['OFC']
+
+    return pc
 
 
 def getSqzParams(ifo):
