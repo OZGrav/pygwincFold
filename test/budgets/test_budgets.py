@@ -65,12 +65,12 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
     F_Hz = np.logspace(np.log10(5), 4, 3000)
     B = load_budget('CE2silica', freq=F_Hz)
     traces1 = B.run()
-    traces2 = B.calc_noise('QuantumVacuum')
-    traces3 = B['QuantumVacuum'].calc_trace()
-    traces4 = B['QuantumVacuum'].calc_noise('QuantumVacuumAS')
-    traces5 = B['QuantumVacuum']['QuantumVacuumAS'].calc_trace()
-    traces6 = B['QuantumVacuum'].run()
-    fig1 = traces1.QuantumVacuum.plot()
+    traces2 = B.calc_noise('Quantum')
+    traces3 = B['Quantum'].calc_trace()
+    traces4 = B['Quantum'].calc_noise('AS')
+    traces5 = B['Quantum']['AS'].calc_trace()
+    traces6 = B['Quantum'].run()
+    fig1 = traces1.Quantum.plot()
     fig2 = traces2.plot()
     fig3 = traces3.plot()
     fig1.savefig(tpath_join('run.pdf'))
@@ -78,8 +78,8 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
     fig3.savefig(tpath_join('calc_trace.pdf'))
 
     pprint('Testing that run() and calc_noise() do the same thing')
-    compare_noise(traces1.QuantumVacuum, traces2)
-    compare_noise(traces1.QuantumVacuum.QuantumVacuumAS, traces2.QuantumVacuumAS)
+    compare_noise(traces1.Quantum, traces2)
+    compare_noise(traces1.Quantum.AS, traces2.AS)
     pprint(
         "Testing that run() and calc_trace() on sub-budgets don't apply strain calibration")
     compare_noise(traces3, traces6)
@@ -96,7 +96,7 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
     update_total_psd(traces3)
 
     fig, ax = plt.subplots()
-    ax.loglog(F_Hz, traces1.QuantumVacuum.asd, label='run')
+    ax.loglog(F_Hz, traces1.Quantum.asd, label='run')
     ax.loglog(F_Hz, traces2.asd, ls='--', label='calc_noise')
     ax.loglog(F_Hz, traces3.asd, ls='-.', label='calc_trace / $L_\mathrm{arm}$')
 
