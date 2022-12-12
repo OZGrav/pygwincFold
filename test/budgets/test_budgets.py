@@ -5,6 +5,8 @@ import gwinc
 from gwinc import load_budget
 import gwinc.io as io
 from copy import deepcopy
+from gwinc.ifo.noises import dhdl
+import matplotlib.pyplot as plt
 import pytest
 
 
@@ -45,6 +47,79 @@ def test_sub_budgets(ifo, tpath_join):
         if trace.budget:
             fig = trace.plot()
             fig.savefig(tpath_join(trace.name + '.pdf'))
+
+
+@pytest.mark.logic
+def test_budget_run_calc(tpath_join, pprint, compare_noise):
+    """
+    Tests that
+      1) budget.run() calculates the entire budget including calibration
+      2) budget.calc_noise(name) calculates the name sub-budget including calibration
+      3) budget[name].calc_trace() calculates the name sub-budget not including calibration
+      4) Both 1) and 2) are still true when called directly on sub-budgets
+      5) Both budget[name].calc_trace(sub_trace) and budget[name][sub_trace].calc_trace()
+         calculate the sub_trace trace of the name sub-budget without the calibration
+         of the main budget
+      6) budget[name].run() is the same as budget[name].calc_trace()
+    """
+    F_Hz = np.logspace(np.log10(5), 4, 3000)
+    B = load_budget('CE2silica', freq=F_Hz)
+    traces1 = B.run()
+    traces2 = B.calc_noise('Quantum')
+    traces3 = B['Quantum'].calc_trace()
+    traces4 = B['Quantum'].calc_noise('AS')
+    traces5 = B['Quantum']['AS'].calc_trace()
+    traces6 = B['Quantum'].run()
+    fig1 = traces1.Quantum.plot()
+    fig2 = traces2.plot()
+    fig3 = traces3.plot()
+    fig1.savefig(tpath_join('run.pdf'))
+    fig2.savefig(tpath_join('calc_noise.pdf'))
+    fig3.savefig(tpath_join('calc_trace.pdf'))
+
+    pprint('Testing that run() and calc_noise() do the same thing')
+    compare_noise(traces1.Quantum, traces2)
+    compare_noise(traces1.Quantum.AS, traces2.AS)
+    pprint(
+        "Testing that run() and calc_trace() on sub-budgets don't apply strain calibration")
+    compare_noise(traces3, traces6)
+
+    def update_total_psd(traces):
+        total_psd = np.sum([trace.psd for trace in traces], axis=0)
+        traces._psd = total_psd
+
+    # divide displacement noise by arm length for ease of plotting
+    Larm_m = B.ifo.Infrastructure.Length
+    dhdl_sqr, sinc_sqr = dhdl(B.freq, Larm_m)
+    for trace in traces3:
+        trace._psd /= Larm_m**2
+    update_total_psd(traces3)
+
+    fig, ax = plt.subplots()
+    ax.loglog(F_Hz, traces1.Quantum.asd, label='run')
+    ax.loglog(F_Hz, traces2.asd, ls='--', label='calc_noise')
+    ax.loglog(F_Hz, traces3.asd, ls='-.', label='calc_trace / $L_\mathrm{arm}$')
+
+    # convert displacement noise into strain
+    for trace in traces3:
+        trace._psd *= sinc_sqr
+    update_total_psd(traces3)
+    ax.loglog(
+        F_Hz, traces3.asd, ls=':',
+        label='calc_trace / $(\mathrm{d}h/\mathrm{d}L_\mathrm{arm})$')
+
+    ax.set_xlim(F_Hz[0], F_Hz[-1])
+    ax.grid(True, which='major', alpha=0.5)
+    ax.grid(True, which='minor', alpha=0.2)
+    ax.set_xlabel('Frequency [Hz]')
+    ax.set_ylabel('Strain noise [1/Hz$^{-1/2}$]')
+    ax.legend()
+    fig.savefig(tpath_join('comparison.pdf'))
+
+    pprint('Testing that calc_trace() is the same as calc_noise() without calibration')
+    compare_noise(traces2, traces3)
+    pprint('Testing that calc_noise() and calc_trace() on sub-budgets are right')
+    compare_noise(traces4, traces5)
 
 
 @pytest.mark.logic

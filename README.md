@@ -153,8 +153,8 @@ is available in the `budget.ifo` attribute.
 The budget `run()` method calculates all budget noises and the noise
 total and returns a `BudgetTrace` object with `freq`, `psd`, and `asd`
 properties.  The budget sub-traces are available through a dictionary
-(`trace['QuantumVacuum']`) interface and via attributes
-(`trace.QuantumVacumm`).
+(`trace['Quantum']`) interface and via attributes
+(`trace.Quantum`).
 
 The budget `freq` and `ifo` attributes can be updated at run time by
 passing them as keyword arguments to the `run()` method:
@@ -438,21 +438,21 @@ and extract the noise data the output traces dictionary:
 ```python
 budget = load_budget('/path/to/MyBudget', freq)
 trace = budget.run()
-quantum_trace = trace['QuantumVacuum']
+quantum_trace = trace['Quantum']
 ```
 
 You can also calculate the final calibrated output noise for just a
 single term using the Budget `calc_noise()` method:
 ```python
-data = budget.calc_noise('QuantumVacuum')
+data = budget.calc_noise('Quantum')
 ```
 
 You can also calculate a noise at it's source, without applying any
 calibrations, by using the Budget `__getitem__` interface to extract
 the specific Noise BudgetItem for the noise you're interested in, and
-running it's `calc()` method directly:
+running it's `calc_trace()` method directly:
 ```python
-data = budget['QuantumVacuum'].calc()
+data = budget['Quantum'].calc_trace()
 ```
 
 
