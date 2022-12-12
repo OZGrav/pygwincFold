@@ -1,8 +1,10 @@
-from gwinc.ifo.noises import *
 from gwinc.ifo import PLOT_STYLE
+from gwinc import noise
+from gwinc import nb
+from gwinc.ifo.noises import Strain
 
 
-class QuantumVacuum(nb.Budget):
+class Quantum(nb.Budget):
     """Quantum Vacuum
 
     """
@@ -12,13 +14,13 @@ class QuantumVacuum(nb.Budget):
     )
 
     noises = [
-        QuantumVacuumAS,
-        QuantumVacuumArm,
-        QuantumVacuumSEC,
-        QuantumVacuumFilterCavity,
-        QuantumVacuumInjection,
-        QuantumVacuumReadout,
-        QuantumVacuumQuadraturePhase,
+        noise.quantum.AS,
+        noise.quantum.Arm,
+        noise.quantum.SEC,
+        noise.quantum.FilterCavity,
+        noise.quantum.Injection,
+        noise.quantum.Readout,
+        noise.quantum.QuadraturePhase,
     ]
 
 
@@ -27,8 +29,8 @@ class CustomBudget(nb.Budget):
     name = 'A custom budget'
 
     noises = [
-        QuantumVacuum,
-        Seismic,
+        Quantum,
+        noise.seismic.Seismic,
     ]
 
     calibrations = [
