@@ -4,10 +4,61 @@
 from __future__ import division, print_function
 import numpy as np
 from numpy import pi, exp, real, imag, sqrt, sin, cos, sinh, cosh, ceil, log
+import copy
 
 from .. import const
 from ..const import BESSEL_ZEROS as zeta
 from ..const import J0M as j0m
+from .. import nb
+from ..ifo.noises import arm_cavity
+
+
+class CoatingBrownian(nb.Noise):
+    """Coating Brownian
+
+    """
+    style = dict(
+        label='Coating Brownian',
+        color='#fe0002',
+    )
+
+    def calc(self):
+        ITM = mirror_struct(self.ifo, 'ITM')
+        ETM = mirror_struct(self.ifo, 'ETM')
+        cavity = arm_cavity(self.ifo)
+        wavelength = self.ifo.Laser.Wavelength
+        nITM = coating_brownian(
+            self.freq, ITM, wavelength, cavity.wBeam_ITM
+        )
+        nETM = coating_brownian(
+            self.freq, ETM, wavelength, cavity.wBeam_ETM
+        )
+        return (nITM + nETM) * 2
+
+
+class CoatingThermoOptic(nb.Noise):
+    """Coating Thermo-Optic
+
+    """
+    style = dict(
+        label='Coating Thermo-Optic',
+        color='#02ccfe',
+        linestyle='--',
+    )
+
+    def calc(self):
+        wavelength = self.ifo.Laser.Wavelength
+        materials = self.ifo.Materials
+        ITM = mirror_struct(self.ifo, 'ITM')
+        ETM = mirror_struct(self.ifo, 'ETM')
+        cavity = arm_cavity(self.ifo)
+        nITM, _, _, _ = coating_thermooptic(
+            self.freq, ITM, wavelength, cavity.wBeam_ITM,
+        )
+        nETM, _, _, _ = coating_thermooptic(
+            self.freq, ETM, wavelength, cavity.wBeam_ETM,
+        )
+        return (nITM + nETM) * 2
 
 
 def coating_brownian(f, mirror, wavelength, wBeam, power=None):
@@ -1028,3 +1079,28 @@ def interpretLossAngles(coat):
             lossBlown = lossSlown = lambda f: coat.Philown
 
     return lossBhighn, lossShighn, lossBlown, lossSlown
+
+
+def mirror_struct(ifo, tm):
+    """Create a "mirror" Struct for a LIGO core optic
+
+    This is a copy of the ifo.Materials Struct, containing Substrate
+    and Coating sub-Structs, as well as some basic geometrical
+    properties of the optic.
+
+    """
+    # NOTE: we deepcopy this struct since we'll be modifying it (and
+    # it would otherwise be stored by reference)
+    mirror = copy.deepcopy(ifo.Materials)
+    optic = ifo.Optics.get(tm)
+    if 'CoatLayerOpticalThickness' in optic:
+        mirror.Coating.dOpt = optic['CoatLayerOpticalThickness']
+    else:
+        T = optic.Transmittance
+        dL = optic.CoatingThicknessLown
+        dCap = optic.CoatingThicknessCap
+        mirror.Coating.dOpt = getCoatDopt(mirror, T, dL, dCap=dCap)
+    mirror.update(optic)
+    mirror.MassVolume = pi * mirror.MassRadius**2 * mirror.MassThickness
+    mirror.MirrorMass = mirror.MassVolume * mirror.Substrate.MassDensity
+    return mirror

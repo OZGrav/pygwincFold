@@ -58,7 +58,7 @@ def test_inherit_custom_budget(fpath_join):
     noises = [noise.__name__ for noise in B_inherit.noises]
 
     assert B_inherit.name == 'A custom budget'
-    assert sorted(noises) == ['QuantumVacuum', 'Seismic']
+    assert sorted(noises) == ['Quantum', 'Seismic']
     assert(
         sorted(B_inherit.ifo.diff(B_orig.ifo))
         == sorted([

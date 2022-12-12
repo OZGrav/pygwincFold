@@ -9,6 +9,64 @@ import scipy.special as sp
 
 from .seismic import seismic_ground_NLNM
 from .. import const
+from .. import nb
+
+
+class Newtonian(nb.Noise):
+    """Newtonian Gravity
+
+    """
+    style = dict(
+        label='Newtonian Gravity',
+        color='#15b01a',
+    )
+
+    def calc(self):
+        n = gravg(self.freq, self.ifo.Seismic)
+        return n * 4
+
+
+class Rayleigh(nb.Noise):
+    """Newtonian Gravity, Rayleigh waves
+
+    """
+    style = dict(
+        label='Rayleigh waves',
+        color='#1b2431',
+    )
+
+    def calc(self):
+        n = gravg_rayleigh(self.freq, self.ifo.Seismic)
+        return n * 2
+
+
+class Body(nb.Noise):
+    """Newtonian Gravity, body waves
+
+    """
+    style = dict(
+        label='Body waves',
+        color='#85a3b2',
+    )
+
+    def calc(self):
+        np = gravg_pwave(self.freq, self.ifo.Seismic)
+        ns = gravg_swave(self.freq, self.ifo.Seismic)
+        return (np + ns) * 4
+
+
+class Infrasound(nb.Noise):
+    """Newtonian Gravity, infrasound
+
+    """
+    style = dict(
+        label='Infrasound)',
+        color='#ffa62b',
+    )
+
+    def calc(self):
+        n = atmois(self.freq, self.ifo.Atmospheric, self.ifo.Seismic)
+        return n * 2
 
 
 def gravg(f, seismic):

@@ -6,6 +6,132 @@ from numpy import sqrt, log, pi
 
 from .. import const
 from .. import Struct
+from .. import nb
+from ..ifo.noises import dhdl, arm_cavity
+from ..suspension import precomp_suspension
+
+
+RESGAS_STYLES = dict(
+    H2 = dict(
+        label='H$_2$',
+        color='xkcd:red orange',
+    ),
+
+    N2 = dict(
+        label='N$_2$',
+        color='xkcd:emerald',
+    ),
+
+    H2O = dict(
+        label='H$_2$O',
+        color='xkcd:water blue',
+    ),
+
+    O2 = dict(
+        label='O$_2$',
+        color='xkcd:grey',
+    ),
+)
+
+
+# FIXME HACK: it's unclear if a phase noise in the arms like
+# the excess gas noise should get the same dhdL strain
+# calibration as the other displacement noises.  However, we
+# would like to use the one Strain calibration for all noises,
+# so we need to divide by the sinc_sqr here to undo the
+# application of the dhdl in the Strain calibration.  But this
+# is ultimately a superfluous extra calculation with the only
+# to provide some simplication in the Budget definition, so
+# should be re-evaluated at some point.
+
+
+def ResidualGasScattering_constructor(species_name):
+    """Residual gas scattering for a single species
+
+    """
+
+    class GasScatteringSpecies(nb.Noise):
+        name = 'Scattering' + species_name
+        style = dict(
+            label=RESGAS_STYLES[species_name]['label'] + ' scattering',
+            color=RESGAS_STYLES[species_name]['color'],
+            linestyle='-',
+        )
+
+        def calc(self):
+            cavity = arm_cavity(self.ifo)
+            species = self.ifo.Infrastructure.ResidualGas[species_name]
+            n = residual_gas_scattering_arm(
+                self.freq, self.ifo, cavity, species)
+            dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+            return n * 2 / sinc_sqr
+
+    return GasScatteringSpecies
+
+
+def ResidualGasDamping_constructor(species_name):
+    """Reisidual gas damping for a single species
+
+    """
+
+    class GasDampingSpecies(nb.Noise):
+        name = 'Damping' + species_name
+        style = dict(
+            label=RESGAS_STYLES[species_name]['label'] + ' damping',
+            color=RESGAS_STYLES[species_name]['color'],
+            linestyle='--',
+        )
+
+        @nb.precomp(sustf=precomp_suspension)
+        def calc(self, sustf):
+            rg = self.ifo.Infrastructure.ResidualGas
+            species = rg[species_name]
+            squeezed_film = rg.get('SqueezedFilm', Struct())
+
+            if squeezed_film is None:
+                raise ValueError('Must specify either excess damping or a gap')
+
+            # Calculate squeezed film for ETM and ITM seperately if either is given
+            # explicitly. If only one is given, it is not computed for the other one.
+            if ('ETM' in squeezed_film) or ('ITM' in squeezed_film):
+                squeezed_film_ETM = squeezed_film.get('ETM', Struct())
+                squeezed_film_ITM = squeezed_film.get('ITM', Struct())
+                n_ETM = residual_gas_damping_test_mass(
+                    self.freq, self.ifo, species, sustf, squeezed_film_ETM)
+                n_ITM = residual_gas_damping_test_mass(
+                    self.freq, self.ifo, species, sustf, squeezed_film_ITM)
+                n = 2 * (n_ETM + n_ITM)
+
+            # Otherwise the same calculation is used for both.
+            else:
+                n = 4 * residual_gas_damping_test_mass(
+                    self.freq, self.ifo, species, sustf, squeezed_film)
+
+            return n
+
+    return GasDampingSpecies
+
+
+class ResidualGas(nb.Budget):
+    """Residual Gas
+
+    """
+    style = dict(
+        label='Residual Gas',
+        color='#add00d',
+        linestyle='-',
+    )
+
+    noises = [
+        ResidualGasScattering_constructor('H2'),
+        ResidualGasScattering_constructor('N2'),
+        ResidualGasScattering_constructor('H2O'),
+        ResidualGasScattering_constructor('O2'),
+        ResidualGasDamping_constructor('H2'),
+        ResidualGasDamping_constructor('N2'),
+        ResidualGasDamping_constructor('H2O'),
+        ResidualGasDamping_constructor('O2'),
+    ]
 
 
 def residual_gas_scattering_arm(f, ifo, cavity, species):

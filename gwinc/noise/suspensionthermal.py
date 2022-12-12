@@ -6,7 +6,76 @@ import numpy as np
 from numpy import pi, imag
 
 from ..const import kB
-from ..suspension import getJointParams
+from ..suspension import getJointParams, precomp_suspension
+from .. import nb
+
+
+
+def SuspensionThermal_constructor(stage_num, direction):
+    """Suspension thermal for a single stage in one direction
+
+    """
+    if stage_num == 0:
+        stage_name = 'Top'
+        color = 'xkcd:orangeish'
+    elif stage_num == 1:
+        stage_name = 'UIM'
+        color = 'xkcd:mustard'
+    elif stage_num == 2:
+        stage_name = 'PUM'
+        color = 'xkcd:turquoise'
+    elif stage_num == 3:
+        stage_name = 'Test mass'
+        color = 'xkcd:bright purple'
+
+    if direction == 'horiz':
+        name0 = 'Horiz' + stage_name
+        label = 'Horiz. ' + stage_name
+        linestyle = '-'
+    elif direction == 'vert':
+        name0 = 'Vert' + stage_name
+        label = 'Vert. ' + stage_name
+        linestyle = '--'
+
+    class SuspensionThermalStage(nb.Noise):
+        name = name0
+        style = dict(
+            label=label,
+            color=color,
+            linestyle=linestyle,
+            alpha=0.7,
+        )
+
+        @nb.precomp(sustf=precomp_suspension)
+        def calc(self, sustf):
+            n = susptherm_stage(
+                self.freq, self.ifo.Suspension, sustf, stage_num, direction)
+            return abs(n) * 4
+
+    return SuspensionThermalStage
+
+
+class SuspensionThermal(nb.Budget):
+    """Suspension Thermal
+
+    """
+
+    name = 'SuspensionThermal'
+
+    style = dict(
+        label='Suspension Thermal',
+        color='#0d75f8',
+    )
+
+    noises = [
+        SuspensionThermal_constructor(0, 'horiz'),
+        SuspensionThermal_constructor(1, 'horiz'),
+        SuspensionThermal_constructor(2, 'horiz'),
+        SuspensionThermal_constructor(3, 'horiz'),
+        SuspensionThermal_constructor(0, 'vert'),
+        SuspensionThermal_constructor(1, 'vert'),
+        SuspensionThermal_constructor(2, 'vert'),
+    ]
 
 
 def getJointTempSusceptibility(sus, sustf, stage_num, isUpper, direction):
