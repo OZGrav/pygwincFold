@@ -2,7 +2,9 @@
 
 '''
 from __future__ import division
+import numpy as np
 from numpy import sqrt, log, pi
+from scipy.integrate import trapz
 
 from .. import const
 from .. import Struct
@@ -60,10 +62,15 @@ def ResidualGasScattering_constructor(species_name):
 
         def calc(self):
             cavity = arm_cavity(self.ifo)
+            Larm_m = self.ifo.Infrastructure.Length
             species = self.ifo.Infrastructure.ResidualGas[species_name]
+            # position along the beamtube starting from vertex corner
+            tube_pos = np.linspace(0, Larm_m, 100)
+            # pressure profile is constant by default
+            pressure_Pa = species.BeamtubePressure * np.ones_like(tube_pos)
             n = residual_gas_scattering_arm(
-                self.freq, self.ifo, cavity, species)
-            dhdl_sqr, sinc_sqr = dhdl(self.freq, self.ifo.Infrastructure.Length)
+                self.freq, self.ifo, cavity, species, pressure_Pa, tube_pos)
+            dhdl_sqr, sinc_sqr = dhdl(self.freq, Larm_m)
             return n * 2 / sinc_sqr
 
     return GasScatteringSpecies
@@ -134,16 +141,16 @@ class ResidualGas(nb.Budget):
     ]
 
 
-def residual_gas_scattering_arm(f, ifo, cavity, species):
-    """Residual gas noise strain spectrum due to scattering from one arm
-
-    Noise caused by the passage of residual gas molecules through the
-    laser beams in one arm cavity due to scattering.
+def residual_gas_scattering_arm(
+        f, ifo, cavity, species, pressure_Pa, tube_pos):
+    """Residual gas scattering from one arm using measured beamtube pressures
 
     :f: frequency array in Hz
     :ifo: gwinc IFO structure
     :cavity: arm cavity structure
     :species: molecular species structure
+    :pressure_Pa: beamtube pressure profile in Pa
+    :tubepos_m: vector of positions where pressure is given in m
 
     :returns: arm strain noise power spectrum at :f:
 
@@ -151,37 +158,26 @@ def residual_gas_scattering_arm(f, ifo, cavity, species):
     E. Zucker, and Stanley E. Whitcomb in their paper Optical
     Pathlength Noise in Sensitive Interferometers Due to Residual Gas.
 
-    Added to Bench by Zhigang Pan, Summer 2006
-    Cleaned up by PF, Apr 07
-    Eliminated numerical integration and substituted first order
-    expansion of exp, to speed it up.
-
     """
-    L = ifo.Infrastructure.Length
+    # beam profile
+    ww_m = cavity.w0 * np.sqrt(1 + ((tube_pos - cavity.zBeam_ITM)/cavity.zr)**2)
     kT = ifo.Infrastructure.Temp * const.kB
-    P = species.BeamtubePressure
     M = species.mass
     alpha = species.polarizability
 
-    rho = P / (kT)                   # number density of Gas
-    v0 = sqrt(2*kT / M)              # mean speed of Gas
+    v0 = np.sqrt(2*kT / M)  # most probable speed of Gas
 
-    waist = cavity.w0                # Gaussian beam waist size
-    zr = cavity.zr                   # Rayleigh range
-    z1 = -cavity.zBeam_ITM           # location of ITM relative to the waist
-    z2 = cavity.zBeam_ETM            # location of ETM relative to the waist
+    alpha = species.polarizability
 
-    # The exponential of Eq. 1 of P940008 is expanded to first order; this
-    # can be integrated analytically
-    zint = log(z2 + sqrt(z2**2 + zr**2)) - log(z1 + sqrt(z1**2 + zr**2))
-    zint = zint * zr/waist
-    zint = zint - 2*pi*L*f/v0
-    # optical path length for one arm
-    zint = zint*((4*rho*(2*pi*alpha)**2)/v0)
-    # eliminate any negative values due to first order approx.
-    zint[zint < 0] = 0
+    # put the integrand into a (numfreq, numpressure) array for faster
+    # integration with trapz
+    integrand = np.exp(np.einsum('i,j->ij', -2*np.pi*f, ww_m/v0))
+    integrand *= np.einsum('i,j->ij', np.ones_like(f), pressure_Pa / ww_m)
+    zint = trapz(integrand, tube_pos, axis=1)
 
-    return zint
+    noise = 4 * (2*np.pi*alpha)**2 / (v0 * kT) * zint
+
+    return noise
 
 
 def residual_gas_damping_test_mass(f, ifo, species, sustf, squeezed_film):
