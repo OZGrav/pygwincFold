@@ -123,6 +123,21 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
 
 
 @pytest.mark.logic
+def test_budget_cals_refs(fpath_join, tpath_join):
+    """
+    Test calibration specifications and reference plotting
+
+    Tests the (Noise, Calibration) calculations not used in the canonical budgets
+    as well as specification of reference traces not included in budget
+    """
+    F_Hz = np.logspace(1, 4, 1000)
+    budget = load_budget(fpath_join('H1'), freq=F_Hz)
+    traces = budget.run()
+    fig = traces.plot()
+    fig.savefig(tpath_join('budget.pdf'))
+
+
+@pytest.mark.logic
 @pytest.mark.fast
 def test_update_ifo_struct():
     """
