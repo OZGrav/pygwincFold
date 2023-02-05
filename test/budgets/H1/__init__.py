@@ -58,6 +58,58 @@ class RadiationPressure(nb.Noise):
         return (Ssql / 2) * kappa_b * asqzV
 
 
+class Coating(nb.Budget):
+    """Coating Thermal
+
+    """
+
+    name = 'Coating'
+
+    style = dict(
+        label='Coating Thermal',
+        color='#fe0002',
+    )
+
+    noises = [
+        noise.coatingthermal.CoatingBrownian,
+        noise.coatingthermal.CoatingThermoOptic,
+    ]
+
+
+class Substrate(nb.Budget):
+    """Substrate Thermal
+
+    """
+
+    name = 'Substrate'
+
+    style = dict(
+        label='Substrate Thermal',
+        color='#fb7d07',
+    )
+
+    noises = [
+        noise.substratethermal.SubstrateBrownian,
+        noise.substratethermal.SubstrateThermoElastic,
+    ]
+
+
+class Thermal(nb.Budget):
+    noises = [
+        Coating,
+        Substrate,
+        noise.suspensionthermal.SuspensionThermal,
+    ]
+
+
+class ThermalDict(nb.Budget):
+    noises = {
+        'Coating': Coating,
+        'Substrate': Substrate,
+        'Sus': noise.suspensionthermal.SuspensionThermal,
+    }
+
+
 class Sensing(nb.Calibration):
     """
     Simple single pole sensing function
@@ -111,6 +163,7 @@ class H1(nb.Budget):
     noises = [
         (Shot, Sensing),
         RadiationPressure,
+        Thermal,
     ]
 
     references = [
@@ -119,12 +172,21 @@ class H1(nb.Budget):
     ]
 
 
+class H1NoRefs(nb.Budget):
+    noises = [
+        (Shot, Sensing),
+        RadiationPressure,
+        Thermal,
+    ]
+
+
 class H1dict(nb.Budget):
     noises = {
-            'Shot': (Shot, Sensing),
-            'RadiationPressure': RadiationPressure,
+        'Shot': (Shot, Sensing),
+        'RadiationPressure': RadiationPressure,
+        'Thermal': ThermalDict,
     }
 
     references = Struct(
-            Reference = DARMMeasured,
+        Reference = DARMMeasured,
     )
