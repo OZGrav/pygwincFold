@@ -74,6 +74,18 @@ def _precomp_recurse_mapping(func, freq, ifo, _precomp):
     return kwargs
 
 
+def list_or_dict_iter(list_or_dict):
+    """Iterator over elements of a list or values of a dict or Struct
+    """
+    from .struct import Struct
+    if type(list_or_dict) == list:
+        return iter(list_or_dict)
+    elif type(list_or_dict) in [dict, Struct]:
+        return iter(list_or_dict.values())
+    else:
+        raise ValueError('Input should be either a list, dict, or Struct')
+
+
 def quadsum(data):
     """Calculate quadrature sum of list of data arrays.
 
@@ -383,15 +395,15 @@ class Budget(Noise):
         # set of all constituent budget noise names
         self._budget_noises = set()
         # initialize all noise objects
-        for nc in self.noises:
+        for nc in list_or_dict_iter(self.noises):
             name = self.__init_noise(nc, noises)
             if name:
                 self._budget_noises.add(name)
         # initialize common calibrations and add to all budget noises
-        for cal in self.calibrations:
+        for cal in list_or_dict_iter(self.calibrations):
             self.__add_calibration(cal, self._budget_noises)
         # initialize references, without common calibrations
-        for nc in self.references:
+        for nc in list_or_dict_iter(self.references):
             self.__init_noise(nc, noises)
         # error if requested noise is not present
         if noises:

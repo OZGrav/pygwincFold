@@ -6,6 +6,7 @@ from gwinc import nb
 import scipy.constants as scc
 import gwinc.noise as noise
 from os import path
+from gwinc import Struct
 
 
 class Shot(nb.Noise):
@@ -116,3 +117,14 @@ class H1(nb.Budget):
         DARMMeasured,
         DARMMeasuredO3,
     ]
+
+
+class H1dict(nb.Budget):
+    noises = {
+            'Shot': (Shot, Sensing),
+            'RadiationPressure': RadiationPressure,
+    }
+
+    references = Struct(
+            Reference = DARMMeasured,
+    )
