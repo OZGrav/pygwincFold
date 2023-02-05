@@ -123,6 +123,36 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
 
 
 @pytest.mark.logic
+def test_budget_cals_refs(fpath_join, tpath_join):
+    """
+    Test calibration specifications and reference plotting
+
+    Tests the (Noise, Calibration) calculations not used in the canonical budgets
+    as well as specification of reference traces not included in budget
+
+    Also checks that noises and references can be specified by dicts or Structs
+    """
+    import H1
+    F_Hz = np.logspace(1, 4, 1000)
+    budget = load_budget(fpath_join('H1'), freq=F_Hz)
+    traces = budget.run()
+
+    budget_dict0 = H1.H1dict(freq=F_Hz, ifo=budget.ifo)
+    H1.H1dict.noises['Shot'] = (H1.Shot, H1.SensingOpticalSpring)
+    H1.H1dict.references.Reference = H1.DARMMeasuredO3
+    budget_dict1 = H1.H1dict(freq=F_Hz, ifo=budget.ifo)
+    traces_dict0 = budget_dict0.run()
+    traces_dict1 = budget_dict1.run()
+
+    fig = traces.plot()
+    fig.savefig(tpath_join('budget.pdf'))
+    fig_dict0 = traces_dict0.plot()
+    fig_dict0.savefig(tpath_join('budget_dict0.pdf'))
+    fig_dict1 = traces_dict1.plot()
+    fig_dict1.savefig(tpath_join('budget_dict1.pdf'))
+
+
+@pytest.mark.logic
 @pytest.mark.fast
 def test_update_ifo_struct():
     """

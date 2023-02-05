@@ -1,0 +1,11 @@
+dcpd_mA: 20
+prc_power: 2.7e3
+
+arm_len: 4e3
+arm_trans: 0.014
+srm_trans: 0.325
+mass: 40
+wavelen: 1064e-9
+
+sqz_dB: -4.1
+asqz_dB: 9.1
