@@ -165,6 +165,24 @@ def test_budget_dict_attributes(fpath_join, tpath_join):
 
 
 @pytest.mark.logic
+def test_forward_noises(fpath_join, tpath_join, compare_noise):
+    B = load_budget(fpath_join('H1'), bname='H1NoRefs')
+    B_frwd = load_budget(fpath_join('H1'), bname='H1NoRefsForwardNoises')
+    tr = B.run()
+    tr_frwd = B_frwd.run()
+    compare_noise(tr.Thermal.SuspensionThermal, tr_frwd.SuspensionThermal)
+
+    fig = tr.plot()
+    fig.savefig(tpath_join('budget.pdf'))
+    fig_frwd = tr_frwd.plot()
+    fig_frwd.savefig(tpath_join('budget_frwd.pdf'))
+    fig = tr.Thermal.SuspensionThermal.plot()
+    fig.savefig(tpath_join('sus_thermal.pdf'))
+    fig = tr_frwd.SuspensionThermal.plot()
+    fig.savefig(tpath_join('sus_thermal_frwd.pdf'))
+
+
+@pytest.mark.logic
 @pytest.mark.fast
 def test_update_ifo_struct():
     """

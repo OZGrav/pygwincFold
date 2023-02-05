@@ -133,6 +133,13 @@ class SensingOpticalSpring(nb.Calibration):
         return 1 / np.abs(sensing_mA_m)**2
 
 
+class Quantum(nb.Budget):
+    noises = [
+        (Shot, Sensing),
+        RadiationPressure,
+    ]
+
+
 class DARMMeasured(nb.Noise):
     style = dict(label='H1 reference')
 
@@ -164,6 +171,7 @@ class H1(nb.Budget):
         (Shot, Sensing),
         RadiationPressure,
         Thermal,
+        noise.seismic.Seismic,
     ]
 
     references = [
@@ -177,7 +185,18 @@ class H1NoRefs(nb.Budget):
         (Shot, Sensing),
         RadiationPressure,
         Thermal,
+        noise.seismic.Seismic,
     ]
+
+
+class H1NoRefsForwardNoises(nb.Budget):
+    noises = [
+        noise.seismic.Seismic,
+    ]
+    noises += nb.forward_noises([
+        Quantum,
+        Thermal,
+    ])
 
 
 class H1dict(nb.Budget):
@@ -185,6 +204,7 @@ class H1dict(nb.Budget):
         'Shot': (Shot, Sensing),
         'RadiationPressure': RadiationPressure,
         'Thermal': ThermalDict,
+        'Seismic': noise.seismic.Seismic,
     }
 
     references = Struct(

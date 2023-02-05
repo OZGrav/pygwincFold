@@ -98,6 +98,60 @@ def quadsum(data):
     return np.nansum(data, 0)
 
 
+def forward_noises(subbudgets):
+    """Extract noises and calibrations from a list of sub-budgets
+
+    Useful for forwarding a list of noises in a sub-budget into an upper level
+    budget. This then groups the noises in the upper level budget without
+    having to analyze the sub-budgets independently.
+
+    Parameters
+    ----------
+    subbudgets : list of Budgets
+      List of the sub-budgets whose noises will be forwarded.
+
+    Returns
+    -------
+    noises_frwd : list of Noise or (Noise, Calibration)
+      The list of noises and their calibrations to be forwarded
+
+    Example
+    -------
+    class Quantum(Budget):
+        noises = [
+            (Shot, Sensing),
+            RadiationPressure,
+        ]
+
+    class MainBudget(Budget):
+        noises = [
+            Thermal,
+        ]
+        noises += forward_noises([
+            Quantum,
+        ])
+
+    Defined like this the main budget will have shot noise, radiation pressure,
+    and thermal noise even though the two quantum noises are grouped in their
+    own sub-budget. If MainBudget had been defined with Quantum in the list of
+    noises with Thermal instead, the main budget would only have the quantum
+    and thermal noises, and the quantum noise would be further broken up
+    into shot noise and radiation pressure noises.
+    """
+    noises_frwd = []
+    for budget in subbudgets:
+        if not isinstance(budget, (tuple, list)):
+            budget = (budget,)
+        b = budget[0]
+        cals = tuple(budget[1:])
+        cals += tuple(b.calibrations)
+        noises_frwd.extend([
+            n + cals if isinstance(n, (tuple, list))
+            else (n,) + cals for n in b.noises
+        ])
+    return noises_frwd
+
+
 class BudgetItem:
     """GWINC BudgetItem class
 
