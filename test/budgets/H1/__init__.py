@@ -140,6 +140,13 @@ class Quantum(nb.Budget):
     ]
 
 
+class QuantumDict(nb.Budget):
+    noises = {
+        'Shot': (Shot, Sensing),
+        'RadiationPressure': RadiationPressure,
+    }
+
+
 class DARMMeasured(nb.Noise):
     style = dict(label='H1 reference')
 
@@ -193,10 +200,11 @@ class H1NoRefsForwardNoises(nb.Budget):
     noises = [
         noise.seismic.Seismic,
     ]
-    noises += nb.forward_noises([
+
+    noises_forward = [
         Quantum,
         Thermal,
-    ])
+    ]
 
 
 class H1dict(nb.Budget):
@@ -210,3 +218,23 @@ class H1dict(nb.Budget):
     references = Struct(
         Reference = DARMMeasured,
     )
+
+
+class H1dictNoRefs(nb.Budget):
+    noises = {
+        'Shot': (Shot, Sensing),
+        'RadiationPressure': RadiationPressure,
+        'Thermal': ThermalDict,
+        'Seismic': noise.seismic.Seismic,
+    }
+
+
+class H1dictNoRefsForwardNoises(nb.Budget):
+    noises = {
+        'Seismic': noise.seismic.Seismic,
+    }
+
+    noises_forward = {
+        'Quantum': QuantumDict,
+        'Thermal': ThermalDict,
+    }

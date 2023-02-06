@@ -168,18 +168,29 @@ def test_budget_dict_attributes(fpath_join, tpath_join):
 def test_forward_noises(fpath_join, tpath_join, compare_noise):
     B = load_budget(fpath_join('H1'), bname='H1NoRefs')
     B_frwd = load_budget(fpath_join('H1'), bname='H1NoRefsForwardNoises')
+    B_dict = load_budget(fpath_join('H1'), bname='H1dictNoRefs')
+    B_dict_frwd = load_budget(
+        fpath_join('H1'), bname='H1dictNoRefsForwardNoises')
+
     tr = B.run()
     tr_frwd = B_frwd.run()
-    compare_noise(tr.Thermal.SuspensionThermal, tr_frwd.SuspensionThermal)
+    tr_dict = B_dict.run()
+    tr_dict_frwd = B_dict_frwd.run()
 
     fig = tr.plot()
     fig.savefig(tpath_join('budget.pdf'))
     fig_frwd = tr_frwd.plot()
     fig_frwd.savefig(tpath_join('budget_frwd.pdf'))
-    fig = tr.Thermal.SuspensionThermal.plot()
-    fig.savefig(tpath_join('sus_thermal.pdf'))
-    fig = tr_frwd.SuspensionThermal.plot()
-    fig.savefig(tpath_join('sus_thermal_frwd.pdf'))
+
+    fig_dict = tr_dict.plot()
+    fig_dict.savefig(tpath_join('budget_dict.pdf'))
+    fig_dict_frwd = tr_dict_frwd.plot()
+    fig_dict_frwd.savefig(tpath_join('budget_dict_frwd.pdf'))
+
+    compare_noise(tr.Thermal.SuspensionThermal, tr_frwd.SuspensionThermal)
+    compare_noise(tr_dict.ThermalDict.SuspensionThermal, tr_dict_frwd.SuspensionThermal)
+    compare_noise(tr, tr_dict)
+    compare_noise(tr_frwd, tr_dict_frwd)
 
 
 @pytest.mark.logic
