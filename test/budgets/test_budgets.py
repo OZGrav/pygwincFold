@@ -123,20 +123,34 @@ def test_budget_run_calc(tpath_join, pprint, compare_noise):
 
 
 @pytest.mark.logic
-def test_budget_cals_refs(fpath_join, tpath_join):
+def test_budget_cals_refs(fpath_join, tpath_join, compare_noise):
     """
     Test calibration specifications and reference plotting
 
     Tests the (Noise, Calibration) calculations not used in the canonical budgets
     as well as specification of reference traces not included in budget
+    """
+    F_Hz = np.logspace(1, 4, 1000)
+    budget = load_budget(fpath_join('H1'), freq=F_Hz)
+    budget_no_ref = load_budget(fpath_join('H1'), freq=F_Hz, bname='H1NoRefs')
+    traces = budget.run()
+    traces_no_ref = budget_no_ref.run()
+    compare_noise(traces_no_ref, traces)
 
-    Also checks that noises and references can be specified by dicts or Structs
+    fig = traces.plot()
+    fig_no_ref = traces_no_ref.plot()
+    fig.savefig(tpath_join('budget.pdf'))
+    fig_no_ref.savefig(tpath_join('budget_no_ref.pdf'))
+
+
+@pytest.mark.logic
+def test_budget_dict_attributes(fpath_join, tpath_join):
+    """
+    Test that noises and references can be specified by dicts or Structs
     """
     import H1
     F_Hz = np.logspace(1, 4, 1000)
-    budget = load_budget(fpath_join('H1'), freq=F_Hz)
-    traces = budget.run()
-
+    budget = load_budget(fpath_join('H1'))
     budget_dict0 = H1.H1dict(freq=F_Hz, ifo=budget.ifo)
     H1.H1dict.noises['Shot'] = (H1.Shot, H1.SensingOpticalSpring)
     H1.H1dict.references.Reference = H1.DARMMeasuredO3
@@ -144,12 +158,39 @@ def test_budget_cals_refs(fpath_join, tpath_join):
     traces_dict0 = budget_dict0.run()
     traces_dict1 = budget_dict1.run()
 
-    fig = traces.plot()
-    fig.savefig(tpath_join('budget.pdf'))
     fig_dict0 = traces_dict0.plot()
     fig_dict0.savefig(tpath_join('budget_dict0.pdf'))
     fig_dict1 = traces_dict1.plot()
     fig_dict1.savefig(tpath_join('budget_dict1.pdf'))
+
+
+@pytest.mark.logic
+def test_forward_noises(fpath_join, tpath_join, compare_noise):
+    B = load_budget(fpath_join('H1'), bname='H1NoRefs')
+    B_frwd = load_budget(fpath_join('H1'), bname='H1NoRefsForwardNoises')
+    B_dict = load_budget(fpath_join('H1'), bname='H1dictNoRefs')
+    B_dict_frwd = load_budget(
+        fpath_join('H1'), bname='H1dictNoRefsForwardNoises')
+
+    tr = B.run()
+    tr_frwd = B_frwd.run()
+    tr_dict = B_dict.run()
+    tr_dict_frwd = B_dict_frwd.run()
+
+    fig = tr.plot()
+    fig.savefig(tpath_join('budget.pdf'))
+    fig_frwd = tr_frwd.plot()
+    fig_frwd.savefig(tpath_join('budget_frwd.pdf'))
+
+    fig_dict = tr_dict.plot()
+    fig_dict.savefig(tpath_join('budget_dict.pdf'))
+    fig_dict_frwd = tr_dict_frwd.plot()
+    fig_dict_frwd.savefig(tpath_join('budget_dict_frwd.pdf'))
+
+    compare_noise(tr.Thermal.SuspensionThermal, tr_frwd.SuspensionThermal)
+    compare_noise(tr_dict.ThermalDict.SuspensionThermal, tr_dict_frwd.SuspensionThermal)
+    compare_noise(tr, tr_dict)
+    compare_noise(tr_frwd, tr_dict_frwd)
 
 
 @pytest.mark.logic

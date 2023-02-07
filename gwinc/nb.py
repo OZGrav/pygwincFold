@@ -5,6 +5,7 @@ import scipy.interpolate
 
 from . import logger
 from .trace import BudgetTrace
+from .struct import Struct
 
 
 def precomp(*precomp_funcs, **precomp_fmaps):
@@ -74,14 +75,19 @@ def _precomp_recurse_mapping(func, freq, ifo, _precomp):
     return kwargs
 
 
-def list_or_dict_iter(list_or_dict):
+def list_or_dict_iter(list_or_dict, return_items=False):
     """Iterator over elements of a list or values of a dict or Struct
+
+    If return_items is True, the items instead of values of a dict or
+    struct are returned
     """
-    from .struct import Struct
-    if type(list_or_dict) == list:
-        return iter(list_or_dict)
-    elif type(list_or_dict) in [dict, Struct]:
-        return iter(list_or_dict.values())
+    if isinstance(list_or_dict, list):
+        return list_or_dict
+    elif isinstance(list_or_dict, (dict, Struct)):
+        if return_items:
+            return list_or_dict.items()
+        else:
+            return list_or_dict.values()
     else:
         raise ValueError('Input should be either a list, dict, or Struct')
 
@@ -96,6 +102,48 @@ def quadsum(data):
 
     """
     return np.nansum(data, 0)
+
+
+def _forward_noises(noises, subbudgets):
+    """Extract noises and calibrations from a list of sub-budgets
+
+    Useful for forwarding a list of noises in a sub-budget into an upper level
+    budget. This then groups the noises in the upper level budget without
+    having to analyze the sub-budgets independently.
+
+    Parameters
+    ----------
+    noises : list or dict of Noises
+    subbudgets : list or dict of Budgets
+      List of the sub-budgets whose noises will be forwarded.
+
+    The noises and their calibrations in subbudgets are added to noises
+    """
+    if not isinstance(subbudgets, (list, dict)):
+        raise ValueError('Only lists and dicts can be forwarded')
+
+    for budget in list_or_dict_iter(subbudgets, return_items=True):
+        if isinstance(subbudgets, dict):
+            bname, budget = budget
+        if not isinstance(budget, (tuple, list)):
+            budget = (budget,)
+        b = budget[0]
+        cals = tuple(budget[1:])
+        cals += tuple(b.calibrations)
+
+        if isinstance(subbudgets, list):
+            noises_frwd = [
+                n + cals if isinstance(n, (tuple, list))
+                else (n,) + cals for n in b.noises
+            ]
+            noises.extend(noises_frwd)
+
+        elif isinstance(subbudgets, dict):
+            noises_frwd = {
+                k: n + cals if isinstance(n, (tuple, list))
+                else (n,) + cals for k, n in b.noises.items()
+            }
+            noises.update(noises_frwd)
 
 
 class BudgetItem:
@@ -351,6 +399,11 @@ class Budget(Noise):
     noises = []
     """List of constituent noise classes, or (noise, cal) tuples"""
 
+    noises_forward = []
+    """List of constituent noise classes, or (noise, cal) tuples.
+    These are not saved in a sub-budget, but applied into this budget directly.
+    """
+
     calibrations = []
     """List of calibrations to be applied to all budget noises (not references)"""
 
@@ -394,6 +447,7 @@ class Budget(Noise):
         self._noise_cals = collections.defaultdict(set)
         # set of all constituent budget noise names
         self._budget_noises = set()
+        _forward_noises(self.noises, self.noises_forward)
         # initialize all noise objects
         for nc in list_or_dict_iter(self.noises):
             name = self.__init_noise(nc, noises)

@@ -58,6 +58,58 @@ class RadiationPressure(nb.Noise):
         return (Ssql / 2) * kappa_b * asqzV
 
 
+class Coating(nb.Budget):
+    """Coating Thermal
+
+    """
+
+    name = 'Coating'
+
+    style = dict(
+        label='Coating Thermal',
+        color='#fe0002',
+    )
+
+    noises = [
+        noise.coatingthermal.CoatingBrownian,
+        noise.coatingthermal.CoatingThermoOptic,
+    ]
+
+
+class Substrate(nb.Budget):
+    """Substrate Thermal
+
+    """
+
+    name = 'Substrate'
+
+    style = dict(
+        label='Substrate Thermal',
+        color='#fb7d07',
+    )
+
+    noises = [
+        noise.substratethermal.SubstrateBrownian,
+        noise.substratethermal.SubstrateThermoElastic,
+    ]
+
+
+class Thermal(nb.Budget):
+    noises = [
+        Coating,
+        Substrate,
+        noise.suspensionthermal.SuspensionThermal,
+    ]
+
+
+class ThermalDict(nb.Budget):
+    noises = {
+        'Coating': Coating,
+        'Substrate': Substrate,
+        'Sus': noise.suspensionthermal.SuspensionThermal,
+    }
+
+
 class Sensing(nb.Calibration):
     """
     Simple single pole sensing function
@@ -79,6 +131,20 @@ class SensingOpticalSpring(nb.Calibration):
         den = self.freq**2 + spring_Hz**2 - 1j * self.freq * spring_Hz / springQ
         sensing_mA_m *= self.freq**2 / den
         return 1 / np.abs(sensing_mA_m)**2
+
+
+class Quantum(nb.Budget):
+    noises = [
+        (Shot, Sensing),
+        RadiationPressure,
+    ]
+
+
+class QuantumDict(nb.Budget):
+    noises = {
+        'Shot': (Shot, Sensing),
+        'RadiationPressure': RadiationPressure,
+    }
 
 
 class DARMMeasured(nb.Noise):
@@ -111,6 +177,8 @@ class H1(nb.Budget):
     noises = [
         (Shot, Sensing),
         RadiationPressure,
+        Thermal,
+        noise.seismic.Seismic,
     ]
 
     references = [
@@ -119,12 +187,54 @@ class H1(nb.Budget):
     ]
 
 
+class H1NoRefs(nb.Budget):
+    noises = [
+        (Shot, Sensing),
+        RadiationPressure,
+        Thermal,
+        noise.seismic.Seismic,
+    ]
+
+
+class H1NoRefsForwardNoises(nb.Budget):
+    noises = [
+        noise.seismic.Seismic,
+    ]
+
+    noises_forward = [
+        Quantum,
+        Thermal,
+    ]
+
+
 class H1dict(nb.Budget):
     noises = {
-            'Shot': (Shot, Sensing),
-            'RadiationPressure': RadiationPressure,
+        'Shot': (Shot, Sensing),
+        'RadiationPressure': RadiationPressure,
+        'Thermal': ThermalDict,
+        'Seismic': noise.seismic.Seismic,
     }
 
     references = Struct(
-            Reference = DARMMeasured,
+        Reference = DARMMeasured,
     )
+
+
+class H1dictNoRefs(nb.Budget):
+    noises = {
+        'Shot': (Shot, Sensing),
+        'RadiationPressure': RadiationPressure,
+        'Thermal': ThermalDict,
+        'Seismic': noise.seismic.Seismic,
+    }
+
+
+class H1dictNoRefsForwardNoises(nb.Budget):
+    noises = {
+        'Seismic': noise.seismic.Seismic,
+    }
+
+    noises_forward = {
+        'Quantum': QuantumDict,
+        'Thermal': ThermalDict,
+    }
