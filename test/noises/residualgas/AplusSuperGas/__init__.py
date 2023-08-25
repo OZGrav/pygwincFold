@@ -1,9 +1,11 @@
+from os import path
+
+import numpy as np
+
 from gwinc.ifo import PLOT_STYLE
 from gwinc import noise
 from gwinc import nb
 from gwinc.ifo.noises import Strain, dhdl
-from os import path
-import pandas as pd
 
 
 class Quantum(nb.Budget):
@@ -57,7 +59,8 @@ def ResidualGasScattering_constructor(species_name, tube):
         def load(self):
             bpath = self.load.__code__.co_filename
             fname = path.join(path.split(bpath)[0], 'beamtube_pressure.txt')
-            df = pd.read_csv(fname, sep='\t')
+            dtype = [(name, float) for name in ('H2_Y', 'H2O_Y', 'N2_Y', 'H2_X', 'H2O_X', 'N2_X', 'position_m')]
+            df = np.loadtxt(fname, dtype=dtype)
             pressure_torr = df[species_name + '_' + tube]
             self.tubepos_m = df['position_m']
             self.pressure_Pa = pressure_torr * 133.3
