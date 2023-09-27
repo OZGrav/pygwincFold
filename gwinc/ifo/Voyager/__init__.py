@@ -45,3 +45,7 @@ class Voyager(nb.Budget):
     ]
 
     plot_style = PLOT_STYLE
+
+
+class Displacement(Voyager):
+    calibrations = []

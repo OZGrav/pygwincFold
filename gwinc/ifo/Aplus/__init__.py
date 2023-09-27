@@ -45,3 +45,7 @@ class Aplus(nb.Budget):
     ]
 
     plot_style = PLOT_STYLE
+
+
+class Displacement(Aplus):
+    calibrations = []
