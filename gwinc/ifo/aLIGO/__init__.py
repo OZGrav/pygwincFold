@@ -42,3 +42,7 @@ class aLIGO(nb.Budget):
     ]
 
     plot_style = PLOT_STYLE
+
+
+class Displacement(aLIGO):
+    calibrations = []

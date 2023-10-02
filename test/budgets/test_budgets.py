@@ -38,6 +38,21 @@ def test_check_noise(ifo, fpath_join, compare_noise):
 
 
 @pytest.mark.parametrize("ifo", gwinc.IFOS)
+def test_displacement_budgets(ifo, tpath_join):
+    B_disp   = load_budget(ifo, bname='Displacement')
+    B_strain = load_budget(ifo)
+    traces_disp   = B_disp.run()
+    traces_strain = B_strain.run()
+    fig = traces_disp.plot()
+    dhdl_sqr, _ = dhdl(B_strain.freq, B_strain.ifo.Infrastructure.Length)
+    disp = traces_strain.asd / np.sqrt(dhdl_sqr)
+    fig.gca().loglog(
+        traces_disp.freq, disp, ls='--', c='xkcd:cerulean', lw=3)
+    fig.savefig(tpath_join('TotalDisplacement.pdf'))
+    assert np.allclose(traces_disp.psd, disp**2, atol=0)
+
+
+@pytest.mark.parametrize("ifo", gwinc.IFOS)
 def test_sub_budgets(ifo, tpath_join):
     B = load_budget(ifo)
     traces = B.run()

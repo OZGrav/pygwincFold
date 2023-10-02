@@ -98,3 +98,7 @@ class CE2silica(nb.Budget):
     ]
 
     plot_style = PLOT_STYLE
+
+
+class Displacement(CE2silica):
+    calibrations = []
