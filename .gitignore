@@ -6,6 +6,10 @@ test_results*/
 gwinc/test/cache
 test/*/*.h5
 
+gwinc.egg-info/
+.eggs/
+gwinc/_version.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
