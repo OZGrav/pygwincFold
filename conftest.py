@@ -71,7 +71,7 @@ def tpath_preclear(request):
 def tpath(request):
     """
     Fixture that takes the value of the special test-specific folder for test
-    run data and plots. Usually the <folder of the test>/tresults/test_name/
+    run data and plots. Usually the <folder of the test>/test_results/test_name/
     """
     tpath_raw = tpath_raw_make(request)
 
@@ -84,7 +84,7 @@ def tpath(request):
 def tpath_join(request):
     """
     Fixture that joins subpaths to the value of the special test-specific folder for test
-    run data and plots. Usually the <folder of the test>/tresults/test_name/.
+    run data and plots. Usually the <folder of the test>/test_results/test_name/.
 
     This function should be use like test_thing.save(tpath_join('output_file.png'))
     """
@@ -236,7 +236,7 @@ def pprint(request, tpath_join):
 
 def tpath_raw_make(request):
     if isinstance(request.node, pytest.Function):
-        return relfile_test(request.node.function.__code__.co_filename, request, 'tresults')
+        return relfile_test(request.node.function.__code__.co_filename, request, 'test_results')
     raise RuntimeError("TPath currently only works for functions")
 
 
