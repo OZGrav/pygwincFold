@@ -104,48 +104,6 @@ def quadsum(data):
     return np.nansum(data, 0)
 
 
-def _forward_noises(noises, subbudgets):
-    """Extract noises and calibrations from a list of sub-budgets
-
-    Useful for forwarding a list of noises in a sub-budget into an upper level
-    budget. This then groups the noises in the upper level budget without
-    having to analyze the sub-budgets independently.
-
-    Parameters
-    ----------
-    noises : list or dict of Noises
-    subbudgets : list or dict of Budgets
-      List of the sub-budgets whose noises will be forwarded.
-
-    The noises and their calibrations in subbudgets are added to noises
-    """
-    if not isinstance(subbudgets, (list, dict)):
-        raise ValueError('Only lists and dicts can be forwarded')
-
-    for budget in list_or_dict_iter(subbudgets, return_items=True):
-        if isinstance(subbudgets, dict):
-            bname, budget = budget
-        if not isinstance(budget, (tuple, list)):
-            budget = (budget,)
-        b = budget[0]
-        cals = tuple(budget[1:])
-        cals += tuple(b.calibrations)
-
-        if isinstance(subbudgets, list):
-            noises_frwd = [
-                n + cals if isinstance(n, (tuple, list))
-                else (n,) + cals for n in b.noises
-            ]
-            noises.extend(noises_frwd)
-
-        elif isinstance(subbudgets, dict):
-            noises_frwd = {
-                k: n + cals if isinstance(n, (tuple, list))
-                else (n,) + cals for k, n in b.noises.items()
-            }
-            noises.update(noises_frwd)
-
-
 class BudgetItem:
     """GWINC BudgetItem class
 
@@ -447,7 +405,11 @@ class Budget(Noise):
         self._noise_cals = collections.defaultdict(set)
         # set of all constituent budget noise names
         self._budget_noises = set()
-        _forward_noises(self.noises, self.noises_forward)
+
+        # this overlays the class noises with the instance version that has
+        # been forwarded.
+        self.noises = self._forward_noises()
+
         # initialize all noise objects
         for nc in list_or_dict_iter(self.noises):
             name = self.__init_noise(nc, noises)
@@ -651,3 +613,77 @@ class Budget(Noise):
         return self._make_trace(
             psd=total, budget=budget
         )
+
+    @classmethod
+    def _forward_noises(cls):
+        """Extract noises and calibrations from a list of sub-budgets.
+        operates recursively through the sub-budgets.
+
+        Useful for forwarding a list of noises in a sub-budget into an upper level
+        budget. This then groups the noises in the upper level budget without
+        having to analyze the sub-budgets independently.
+
+        Parameters
+        ----------
+        noises : list or dict of Noises
+        subbudgets : list or dict of Budgets
+        List of the sub-budgets whose noises will be forwarded.
+
+        The noises and their calibrations in subbudgets are added to noises
+        """
+        noises = cls.noises
+        subbudgets = cls.noises_forward
+
+        if not isinstance(subbudgets, (list, dict)):
+            raise ValueError('Only lists and dicts can be forwarded')
+
+        # make a copy to update
+        if isinstance(noises, list):
+            noises = list(noises)
+            # must promote noises
+            if isinstance(subbudgets, dict):
+                noises = {
+                    b.__name__: b for b in noises
+                }
+        else:
+            noises = dict(noises)
+            # must promote the subbudgets
+            if isinstance(subbudgets, list):
+                subbudgets = {
+                    b.__name__: b for b in subbudgets
+                }
+
+        for budget in list_or_dict_iter(subbudgets, return_items=True):
+            if isinstance(subbudgets, dict):
+                bname, budget = budget
+            if not isinstance(budget, (tuple, list)):
+                budget = (budget,)
+            b = budget[0]
+
+            # choosing a tuple type here, the remainder will be
+            # converted also to tuple, to property overload "+" as concat
+            cals = tuple(budget[1:])
+            cals += tuple(b.calibrations)
+
+            if isinstance(subbudgets, list):
+                noises_frwd = [
+                    tuple(n) + cals
+                    if isinstance(n, (tuple, list))
+                    else (n,) + cals
+                    for n in b._forward_noises()
+                ]
+                noises.extend(noises_frwd)
+
+            # this may not work due to assuming b.noises is also a Mapping
+            elif isinstance(subbudgets, dict):
+                noises_frwd = {
+                    k: tuple(n) + cals
+                    if isinstance(n, (tuple, list))
+                    else (n,) + cals
+                    for k, n in b._forward_noises().items()
+                }
+                noises.update(noises_frwd)
+
+        return noises
+
+
