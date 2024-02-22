@@ -51,7 +51,6 @@ def ifo_power(ifo, PRfixed=True):
     """Compute power on beamsplitter, finesse, and power recycling factor.
 
     """
-    pin = ifo.Laser.Power
     t1 = sqrt(ifo.Optics.ITM.Transmittance)
     r1 = sqrt(1 - ifo.Optics.ITM.Transmittance)
     r2 = sqrt(1 - ifo.Optics.ETM.Transmittance)
@@ -78,8 +77,23 @@ def ifo_power(ifo, PRfixed=True):
         r5 = sqrt(1 - Tpr)
     prfactor = t5**2 / (1 + r5 * rarm * sqrt(1-bsloss))**2
 
-    pbs = pin * prfactor  # BS power from input power
-    parm = pbs * garm**2 / 2  # arm power from BS power
+    #allow either the input power or the arm power to be the principle power used
+    #input power is good for new budgets, while arm power is good for site noise
+    #budgets
+    pin = ifo.Laser.get('Power', None)
+    parm = ifo.Laser.get('ArmPower', None)
+    if pin is not None:
+        if parm is not None:
+            #TODO, make a ConfigError or IfoError?
+            raise RuntimeError("Cannot specify both Laser.Power and Laser.ArmPower")
+        pbs = pin * prfactor  # BS power from input power
+        parm = pbs * garm**2 / 2  # arm power from BS power
+    else:
+        if parm is None:
+            #TODO, make a ConfigError or IfoError?
+            raise RuntimeError("Need to specify either Laser.Power or Laser.ArmPower")
+        pbs = parm / (garm**2 / 2)  # arm power from BS power
+        pin = pbs / prfactor  # BS power from input power
 
     thickness = ifo.Optics.ITM.get('Thickness', ifo.Materials.MassThickness)
     asub = 1.3 * 2 * thickness * ifo.Optics.SubstrateAbsorption
