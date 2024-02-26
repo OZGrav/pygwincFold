@@ -308,10 +308,17 @@ You may interact with the plot using the 'plt' functions, e.g.:
 In [.]: plt.title("foo")
 In [.]: plt.savefig("foo.pdf")
 """
+        from IPython.core import getipython
         from IPython.terminal.embed import InteractiveShellEmbed
         if subtitle:
             plot_style['title'] += '\n' + subtitle
-        ipshell = InteractiveShellEmbed(
+        # deal with breaking change in ipython embedded mode
+        # https://github.com/ipython/ipython/issues/13966
+        if getipython.get_ipython() is None:
+            embed = InteractiveShellEmbed.instance
+        else:
+            embed = InteractiveShellEmbed
+        ipshell = embed(
             banner1=banner,
             user_ns={
                 'ifo': ifo,
