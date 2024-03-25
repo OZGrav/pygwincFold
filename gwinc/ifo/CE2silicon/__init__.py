@@ -1,7 +1,7 @@
 from gwinc.ifo import PLOT_STYLE
 from gwinc import noise
 from gwinc import nb
-from gwinc.ifo.noises import Strain
+import gwinc.ifo.noises as calibrations
 
 
 class Quantum(nb.Budget):
@@ -95,7 +95,7 @@ class CE2silicon(nb.Budget):
     ]
 
     calibrations = [
-        Strain,
+        calibrations.Strain,
     ]
 
     plot_style = PLOT_STYLE
@@ -103,3 +103,25 @@ class CE2silicon(nb.Budget):
 
 class Displacement(CE2silicon):
     calibrations = []
+
+
+class Displacement(CE2silicon):
+    calibrations = []
+
+
+class Acceleration(CE2silicon):
+    calibrations = [
+        calibrations.Acceleration,
+    ]
+
+
+class Velocity(CE2silicon):
+    calibrations = [
+        calibrations.Velocity,
+    ]
+
+
+class Force(CE2silicon):
+    calibrations = [
+        calibrations.Force,
+    ]

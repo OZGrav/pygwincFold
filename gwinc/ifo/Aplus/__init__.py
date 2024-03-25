@@ -1,7 +1,7 @@
 from gwinc.ifo import PLOT_STYLE
 from gwinc import noise
 from gwinc import nb
-from gwinc.ifo.noises import Strain
+import gwinc.ifo.noises as calibrations
 
 
 class Quantum(nb.Budget):
@@ -41,7 +41,7 @@ class Aplus(nb.Budget):
     ]
 
     calibrations = [
-        Strain,
+        calibrations.Strain,
     ]
 
     plot_style = PLOT_STYLE
@@ -49,3 +49,21 @@ class Aplus(nb.Budget):
 
 class Displacement(Aplus):
     calibrations = []
+
+
+class Acceleration(Aplus):
+    calibrations = [
+        calibrations.Acceleration,
+    ]
+
+
+class Velocity(Aplus):
+    calibrations = [
+        calibrations.Velocity,
+    ]
+
+
+class Force(Aplus):
+    calibrations = [
+        calibrations.Force,
+    ]

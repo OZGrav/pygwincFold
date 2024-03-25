@@ -153,5 +153,21 @@ class Force(nb.Calibration):
     """Calibrate displacement to force
     """
     def calc(self):
+        from ..noise.coatingthermal import mirror_struct
+
         mass = mirror_struct(self.ifo, 'ETM').MirrorMass
         return (mass * (2*pi*self.freq)**2)**2
+
+
+class Acceleration(nb.Calibration):
+    """Calibrate displacement to acceleration
+    """
+    def calc(self):
+        return (2*pi*self.freq)**4
+
+
+class Velocity(nb.Calibration):
+    """Calibrate displacement to velocity
+    """
+    def calc(self):
+        return (2*pi*self.freq)**2

@@ -38,18 +38,30 @@ def test_check_noise(ifo, fpath_join, compare_noise):
 
 
 @pytest.mark.parametrize("ifo", gwinc.IFOS)
-def test_displacement_budgets(ifo, tpath_join):
-    B_disp   = load_budget(ifo, bname='Displacement')
-    B_strain = load_budget(ifo)
-    traces_disp   = B_disp.run()
-    traces_strain = B_strain.run()
-    fig = traces_disp.plot()
-    dhdl_sqr, _ = dhdl(B_strain.freq, B_strain.ifo.Infrastructure.Length)
-    disp = traces_strain.asd / np.sqrt(dhdl_sqr)
-    fig.gca().loglog(
-        traces_disp.freq, disp, ls='--', c='xkcd:cerulean', lw=3)
-    fig.savefig(tpath_join('TotalDisplacement.pdf'))
-    assert np.allclose(traces_disp.psd, disp**2, atol=0)
+def test_calibrations(ifo, tpath_join):
+    """Test that the standard calibrations are correct"""
+    from gwinc.noise.coatingthermal import mirror_struct
+
+    cals = ["Displacement", "Velocity", "Acceleration", "Force"]
+    budgets = gwinc.Struct({cal: load_budget(ifo, bname=cal) for cal in cals})
+    budgets["Strain"] = load_budget(ifo)
+    traces = gwinc.Struct({cal: budget.run() for cal, budget in budgets.items()})
+    freq = traces.Strain.freq
+    dhdl_sqr, _ = dhdl(freq, budgets.Strain.ifo.Infrastructure.Length)
+    disp = traces.Strain.asd / np.sqrt(dhdl_sqr)
+
+    for power, (cal, trace) in enumerate(traces.items()):
+        if cal == "Strain":
+            continue
+        # reference is the correct value
+        reference = disp * (2 * np.pi * freq)**power
+        if cal == "Force":
+            mass = mirror_struct(budgets.Strain.ifo, "ETM").MirrorMass
+            reference = disp * mass * (2 * np.pi * freq)**2
+        fig = trace.plot()
+        fig.gca().loglog(freq, reference, ls="--", c="xkcd:baby blue", lw=3)
+        fig.savefig(tpath_join(f"Total{cal}.pdf"))
+        assert np.allclose(trace.psd, reference**2, atol=0)
 
 
 @pytest.mark.parametrize("ifo", gwinc.IFOS)
