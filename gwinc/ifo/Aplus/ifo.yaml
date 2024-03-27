@@ -288,8 +288,8 @@ Optics:
     Tunephase: 0.0                # SEC tuning
 
   Curvature:                      # ROC
-    ITM: 1970
-    ETM: 2192
+    ITM: 1940
+    ETM: 2245
 
 ## Squeezer Parameters------------------------------------------------------
 # Define the squeezing you want:
