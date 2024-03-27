@@ -60,7 +60,7 @@ class Infrasound(nb.Noise):
 
     """
     style = dict(
-        label='Infrasound)',
+        label='Infrasound',
         color='#ffa62b',
     )
 
