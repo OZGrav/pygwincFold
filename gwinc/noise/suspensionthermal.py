@@ -11,45 +11,40 @@ from .. import nb
 
 
 
-def SuspensionThermal_constructor(stage_num, direction):
+def SuspensionThermal_constructor(stage_name, direction):
     """Suspension thermal for a single stage in one direction
 
     """
-    if stage_num == 0:
-        stage_name = 'Top'
-        color = 'xkcd:orangeish'
-    elif stage_num == 1:
-        stage_name = 'UIM'
-        color = 'xkcd:mustard'
-    elif stage_num == 2:
-        stage_name = 'PUM'
-        color = 'xkcd:turquoise'
-    elif stage_num == 3:
-        stage_name = 'Test mass'
-        color = 'xkcd:bright purple'
-
-    if direction == 'horiz':
-        name0 = 'Horiz' + stage_name
-        label = 'Horiz. ' + stage_name
-        linestyle = '-'
-    elif direction == 'vert':
-        name0 = 'Vert' + stage_name
-        label = 'Vert. ' + stage_name
-        linestyle = '--'
+    assert direction in ["horiz", "vert"]
+    stage_map = {
+        "Top": 0,
+        "UIM": 1,
+        "PUM": 2,
+        "TM": 3,
+    }
+    color_map = {
+        "Top": "xkcd:orangeish",
+        "UIM": "xkcd:mustard",
+        "PUM": "xkcd:turquoise",
+        "TM": "xkcd:bright purple",
+    }
+    label_map = {
+        "TM": "Test mass",
+    }
 
     class SuspensionThermalStage(nb.Noise):
-        name = name0
+        name = f"{direction.capitalize()}{stage_name}"
         style = dict(
-            label=label,
-            color=color,
-            linestyle=linestyle,
+            label=f"{direction.capitalize()}. {label_map.get(stage_name, stage_name)}",
+            color=color_map[stage_name],
+            linestyle="-" if direction == "horiz" else "--",
             alpha=0.7,
         )
 
         @nb.precomp(sustf=precomp_suspension)
         def calc(self, sustf):
             n = susptherm_stage(
-                self.freq, self.ifo.Suspension, sustf, stage_num, direction)
+                self.freq, self.ifo.Suspension, sustf, stage_map[stage_name], direction)
             return abs(n) * 4
 
     return SuspensionThermalStage
@@ -68,13 +63,13 @@ class SuspensionThermal(nb.Budget):
     )
 
     noises = [
-        SuspensionThermal_constructor(0, 'horiz'),
-        SuspensionThermal_constructor(1, 'horiz'),
-        SuspensionThermal_constructor(2, 'horiz'),
-        SuspensionThermal_constructor(3, 'horiz'),
-        SuspensionThermal_constructor(0, 'vert'),
-        SuspensionThermal_constructor(1, 'vert'),
-        SuspensionThermal_constructor(2, 'vert'),
+        SuspensionThermal_constructor("Top", "horiz"),
+        SuspensionThermal_constructor("UIM", "horiz"),
+        SuspensionThermal_constructor("PUM", "horiz"),
+        SuspensionThermal_constructor("TM", "horiz"),
+        SuspensionThermal_constructor("Top", "vert"),
+        SuspensionThermal_constructor("UIM", "vert"),
+        SuspensionThermal_constructor("PUM", "vert"),
     ]
 
 
