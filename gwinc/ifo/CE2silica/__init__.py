@@ -4,25 +4,6 @@ from gwinc import nb
 import gwinc.ifo.noises as calibrations
 
 
-class Newtonian(nb.Budget):
-    """Newtonian Gravity
-
-    """
-
-    name = 'Newtonian'
-
-    style = dict(
-        label='Newtonian',
-        color='#15b01a',
-    )
-
-    noises = [
-        noise.newtonian.Rayleigh,
-        noise.newtonian.Body,
-        noise.newtonian.Infrasound,
-    ]
-
-
 class Coating(nb.Budget):
     """Coating Thermal
 
@@ -66,7 +47,7 @@ class CE2silica(nb.Budget):
     noises = [
         noise.quantum.Quantum,
         noise.seismic.Seismic,
-        Newtonian,
+        noise.newtonian.Newtonian,
         noise.suspensionthermal.SuspensionThermal,
         Coating,
         Substrate,

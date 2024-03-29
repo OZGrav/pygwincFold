@@ -12,20 +12,6 @@ from .. import const
 from .. import nb
 
 
-class Newtonian(nb.Noise):
-    """Newtonian Gravity
-
-    """
-    style = dict(
-        label='Newtonian Gravity',
-        color='#15b01a',
-    )
-
-    def calc(self):
-        n = gravg(self.freq, self.ifo.Seismic)
-        return n * 4
-
-
 class Rayleigh(nb.Noise):
     """Newtonian Gravity, Rayleigh waves
 
@@ -67,6 +53,25 @@ class Infrasound(nb.Noise):
     def calc(self):
         n = atmois(self.freq, self.ifo.Atmospheric, self.ifo.Seismic)
         return n * 2
+
+
+class Newtonian(nb.Budget):
+    """Newtonian Gravity
+
+    """
+
+    name = 'Newtonian'
+
+    style = dict(
+        label='Newtonian',
+        color='#15b01a',
+    )
+
+    noises = [
+        Rayleigh,
+        Body,
+        Infrasound,
+    ]
 
 
 def gravg(f, seismic):
