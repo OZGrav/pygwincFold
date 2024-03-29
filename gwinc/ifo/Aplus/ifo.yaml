@@ -102,7 +102,7 @@ Seismic:
   RayleighWaveSpeed: 250          # m/s
   pWaveLevel: 45                    # Multiple of the Peterson NLNM amplitude
   sWaveLevel: 45                    # Multiple of the Peterson NLNM amplitude
-  PlatformMotion: 'intermediate'
+  PlatformMotion: 'BSC'
 
 
 Atmospheric:
