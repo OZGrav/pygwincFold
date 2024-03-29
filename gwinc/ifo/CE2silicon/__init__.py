@@ -4,26 +4,6 @@ from gwinc import nb
 import gwinc.ifo.noises as calibrations
 
 
-class Quantum(nb.Budget):
-    """Quantum Vacuum
-
-    """
-    style = dict(
-        label='Quantum Vacuum',
-        color='#ad03de',
-    )
-
-    noises = [
-        noise.quantum.AS,
-        noise.quantum.Arm,
-        noise.quantum.SEC,
-        noise.quantum.FilterCavity,
-        noise.quantum.Injection,
-        noise.quantum.Readout,
-        noise.quantum.QuadraturePhase,
-    ]
-
-
 class Newtonian(nb.Budget):
     """Newtonian Gravity
 
@@ -85,7 +65,7 @@ class CE2silicon(nb.Budget):
     name = 'Cosmic Explorer 2 (Silicon)'
 
     noises = [
-        Quantum,
+        noise.quantum.Quantum,
         noise.seismic.Seismic,
         Newtonian,
         noise.suspensionthermal.SuspensionThermal,
