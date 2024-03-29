@@ -96,9 +96,29 @@ Seismic:
   Beta: 0.8                        # quiet times beta = 0.35-0.60; noisy times beta = 0.15-1.4
   Omicron: 10                      # Feedforward cancellation factor
   TestMassHeight: 1.5              # m
+  pWaveSpeed: 600                   # m/s
+  sWaveSpeed: 300                   # m/s
   RayleighWaveSpeed: 250           # m/s
+  pWaveLevel: 45                    # Multiple of the Peterson NLNM amplitude
+  sWaveLevel: 45                    # Multiple of the Peterson NLNM amplitude
   PlatformMotion: '6D'
   #darmSeiSusFile: 'CryogenicLIGO/Sensitivity/GWINC/seismic.mat'
+
+
+Atmospheric:
+  AirPressure: 101325               # Pa
+  AirDensity: 1.225                 # kg/m**3
+  AirKinematicViscosity: 1.8e-5     # m**2/s
+  AdiabaticIndex: 1.4               #
+  SoundSpeed: 344                   # m/s
+  WindSpeed: 10                     # m/s; typical value
+  Temperature: 300                  # K
+  TempStructConst: 0.2              # K**2/m**(2/3);
+  TempStructExp: 0.667              #
+  TurbOuterScale: 100               # m
+  # TurbEnergyDissRate: 0.01        # m**2/s**3
+  KolmEnergy1m: 1                   # Kolmogorov energy spectrum at 1/m [m**2/s**2]
+
 
 Suspension:
   Type: 'Quad'
