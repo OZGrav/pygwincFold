@@ -4,31 +4,12 @@ from gwinc import nb
 import gwinc.ifo.noises as calibrations
 
 
-class Quantum(nb.Budget):
-    """Quantum Vacuum
-
-    """
-    style = dict(
-        label='Quantum Vacuum',
-        color='#ad03de',
-    )
-
-    noises = [
-        noise.quantum.AS,
-        noise.quantum.Arm,
-        noise.quantum.SEC,
-        noise.quantum.FilterCavity,
-        noise.quantum.Injection,
-        noise.quantum.Readout,
-    ]
-
-
 class Voyager(nb.Budget):
 
     name = 'Voyager'
 
     noises = [
-        Quantum,
+        noise.quantum.Quantum,
         noise.seismic.Seismic,
         noise.newtonian.Newtonian,
         noise.suspensionthermal.SuspensionThermal,

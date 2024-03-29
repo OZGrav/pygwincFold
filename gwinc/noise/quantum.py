@@ -46,7 +46,6 @@ def precomp_quantum(f, ifo, sustf):
     return pc
 
 
-
 class QuantumVacuum(nb.Noise):
     """Quantum Vacuum
 
@@ -159,6 +158,26 @@ class QuadraturePhase(nb.Noise):
     @nb.precomp(quantum=precomp_quantum)
     def calc(self, quantum):
         return quantum.Phase
+
+
+class Quantum(nb.Budget):
+    """Quantum Vacuum
+
+    """
+    style = dict(
+        label='Quantum Vacuum',
+        color='#ad03de',
+    )
+
+    noises = [
+        AS,
+        Arm,
+        SEC,
+        FilterCavity,
+        Injection,
+        Readout,
+        QuadraturePhase,
+    ]
 
 
 class StandardQuantumLimit(nb.Noise):
