@@ -4,7 +4,7 @@
 from __future__ import division
 import numpy as np
 from numpy import sqrt, log, pi
-from scipy.integrate import trapz
+from scipy.integrate import trapezoid
 
 from .. import const
 from .. import Struct
@@ -170,10 +170,10 @@ def residual_gas_scattering_arm(
     alpha = species.polarizability
 
     # put the integrand into a (numfreq, numpressure) array for faster
-    # integration with trapz
+    # integration with trapezoid
     integrand = np.exp(np.einsum('i,j->ij', -2*np.pi*f, ww_m/v0))
     integrand *= np.einsum('i,j->ij', np.ones_like(f), pressure_Pa / ww_m)
-    zint = trapz(integrand, tube_pos, axis=1)
+    zint = trapezoid(integrand, tube_pos, axis=1)
 
     noise = 4 * (2*np.pi*alpha)**2 / (v0 * kT) * zint
 
