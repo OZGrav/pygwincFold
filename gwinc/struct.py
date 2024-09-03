@@ -435,7 +435,7 @@ class Struct(object):
                 v = np.array2string(
                     v,
                     separator='',
-                    max_line_width=np.Inf,
+                    max_line_width=np.inf,
                     formatter={'all': lambda x: "{:0.6e} ".format(x)}
                 )
                 base = 's'
