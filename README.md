@@ -3,7 +3,7 @@
 
 Code that matters is in gwincFold, I haven't put any effort into making the CLI work so please just use it in a python script or a jupyter notebook.
 
-In addition to the standard pyGWINC interferometer configuration folders (ifo\\) there are, so far, three 'Folded Interferometer' specific configurations:
+In addition to the standard pyGWINC interferometer configuration folders (gwincFold\ifo\\) there are, so far, three 'Folded Interferometer' specific configurations:
 - APlusFold
 - APlusFoldAlGaAs
 - APlusFoldAlGaAsSilicon
