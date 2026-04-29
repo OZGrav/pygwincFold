@@ -10,6 +10,8 @@ The IFOs that are currently working are:
 
 The actual params are not necessarily reliable. APlusFold has the folding mirror with a FS substrate and suspension with tantala/silica coatings, APlusFoldAlGaAs has the folding mirror coating switched so that the loss angle is close to AlGaAs (based on the A# AlGaAs models in the LIGO post-05 gitlab made by kevin kuns) and the APlusFoldAlGaAsSilicon has the folding mirror substrate and suspension replaced with 123K silicon (material params taken from gwinc CE2Silicon.yaml). The coating thickness for the last yaml I also had to borrow from the CE2Silicon model since it broke something but this needs to be fixed at some point.
 
+The file update_ifo.py has some useful functions for updating the folding mirror and test mass suspensions. It will update the test mass masses while adjusting the other params so that the maximum stress stays the same. NOTE: I have only tested for fiber based suspensions.
+
 # Task List
 
 - AlGaAs coating parameters
